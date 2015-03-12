@@ -1,10 +1,12 @@
-/*
+/* test branch
  * OneWireLeds.asm
  *
  *  Created: 10.12.2013 21:24:08
  *   Author: vlad
  */ 
+
 #define F_CPU	16000000
+
 //#define	NODELAY
 
 .def	tempa	= r16
