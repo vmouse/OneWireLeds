@@ -20,7 +20,7 @@
 .equ	TapeLen		= 16	// length of led tape
 
 .equ	led			= PB1	// led out pin
-.equ	sens		= PB0   // sensor in port
+.equ	sens		= PB2   // sensor in port
 .equ	led_port	= PORTB // data port
 .equ	led_ddr		= DDRB  // direct databort
 
@@ -80,9 +80,16 @@ RESET:
 	stsi	WDTCSR, (1<<WDP3)|(0<<WDP2)|(0<<WDP1)|(1<<WDP0)|(0<<WDCE)|(0<<WDE) // reset after 8 sec hang
 
 // Port init:
-	outi	led_ddr, (1<<Led)	// output for bus port
+	outi	led_ddr, (1<<Led)	// output for bus port only
 	outi	led_port, 0xff		// set pullups 
 // ADC init (ADC1)
+; Initial ADC
+;    outi  ADCSRA,0b10000110 ; Turn On the ADC, with prescale 64
+    outi  ADCSRA, (1<<ADEN)|(0<<ADPS2)|(0<<ADPS1)|(0<<ADPS0); Turn On the ADC, with prescale 2 (fast mode)
+	outi  ADCSRB,0b00000000 ; Free running mode
+	outi  ADMUX, (0<<REFS2)|(0<<REFS1)|(0<<REFS0)|(1<<ADLAR)|(1<<MUX0)|(0<<MUX1)|(0<<MUX2)|(0<<MUX3) ; Reference = VCC,Left Adjust, Channel: PB2 (ADC1)
+	outi  DIDR0, (1<<ADC1D) ; Disable Digital Input on PB2 (ADC1)
+
 //ADMUX; ADCSRA; DIDR0; TCCR0A; TCCR0B
 
 
@@ -90,9 +97,18 @@ RESET:
 	rcall	InitVariables		// clear output array and set program pointer to begin
 	rcall	InitNextEffect		// read program line and set effect array pointers (BegArr, EndArr)
 
+	ldi		tempb, 255
+	rcall	DrawLevel
+
 MainLoop:						// Основной цикл обработки перехода состояний
 
-	ldi		tempb, 64
+    sbi   ADCSRA,ADSC      ; Start ADC conversion
+ml_adc_wait:  
+	sbic  ADCSRA,ADSC      ; while (ADCSRA & (1<<ADSC))
+	rjmp  ml_adc_wait
+	in    tempb,ADCH         ; Read the result Ignore the last 2 bits in ADCL
+
+//	ldi		tempb, 0
 	rcall	DrawLevel
 //	rcall	ShowNextState		// готовим массив для отображения 
 	rcall	Output_ledtape		// выводим в ленту
