@@ -12,6 +12,7 @@
 .def	tempa	= r16
 .def	tempb	= r17
 .def	tempc	= r18
+.def	ShowingState = r20
 
 .def	WaitDelay		= r25
 
@@ -24,7 +25,7 @@
 .equ	led_port	= PORTB // data port
 .equ	led_ddr		= DDRB  // direct databort
 
-.equ	DelayConst	= 250//200
+.equ	DelayConst	= 150//200
 .equ	StateChange = 1
 .equ	StateWait	= 2
 
@@ -87,7 +88,7 @@ RESET:
 ;    outi  ADCSRA,0b10000110 ; Turn On the ADC, with prescale 64
     outi  ADCSRA, (1<<ADEN)|(0<<ADPS2)|(0<<ADPS1)|(0<<ADPS0); Turn On the ADC, with prescale 2 (fast mode)
 	outi  ADCSRB,0b00000000 ; Free running mode
-	outi  ADMUX, (0<<REFS2)|(0<<REFS1)|(0<<REFS0)|(1<<ADLAR)|(1<<MUX0)|(0<<MUX1)|(0<<MUX2)|(0<<MUX3) ; Reference = VCC,Left Adjust, Channel: PB2 (ADC1)
+	outi  ADMUX, (0<<REFS2)|(0<<REFS1)|(0<<REFS0)|(0<<ADLAR)|(1<<MUX0)|(0<<MUX1)|(0<<MUX2)|(0<<MUX3) ; Reference = VCC,Left Adjust, Channel: PB2 (ADC1)
 	outi  DIDR0, (1<<ADC1D) ; Disable Digital Input on PB2 (ADC1)
 
 //ADMUX; ADCSRA; DIDR0; TCCR0A; TCCR0B
@@ -97,29 +98,46 @@ RESET:
 	rcall	InitVariables		// clear output array and set program pointer to begin
 	rcall	InitNextEffect		// read program line and set effect array pointers (BegArr, EndArr)
 
-	ldi		tempb, 255
-	rcall	DrawLevel
-
+	ldi		ShowingState, 1
 MainLoop:						// Основной цикл обработки перехода состояний
 
-    sbi   ADCSRA,ADSC      ; Start ADC conversion
+    sbi     ADCSRA,ADSC      ; Start ADC conversion
 ml_adc_wait:  
-	sbic  ADCSRA,ADSC      ; while (ADCSRA & (1<<ADSC))
-	rjmp  ml_adc_wait
-	in    tempb,ADCH         ; Read the result Ignore the last 2 bits in ADCL
+	sbic    ADCSRA,ADSC      ; while (ADCSRA & (1<<ADSC))
+	rjmp    ml_adc_wait
+	in      tempb,ADCL         ; Read the result Ignore the last 2 bits in ADCL
+	in      tempa,ADCH         ; Read the result Ignore the last 2 bits in ADCL
 
-//	ldi		tempb, 0
-	rcall	DrawLevel
+	cpi	    tempb, 128
+	brsh    ml_no_magnet
+
+	ldi		ShowingState, 1
+	rcall	InitNextEffect		// read program line and set effect array pointers (BegArr, EndArr)
+
+ml_no_magnet:
+	cpi		ShowingState, 1
+	brne	MainLoop
+
+	rcall	ReadNextState
+	brts	ml_stop_effect		// end of effect	
+
 //	rcall	ShowNextState		// готовим массив для отображения 
+//	rcall	DrawLevel
 	rcall	Output_ledtape		// выводим в ленту
 	
-	ldi		tempa, 5
+	ldi		tempa, 1
 ml_1:
 	rcall	delay_output		// задержка
 	dec		tempa
 	brne	ml_1
 
 	rjmp	MainLoop
+
+ml_stop_effect:
+	ldi		ShowingState, 0
+	rjmp	MainLoop
+
+
 
 // Modes loop, each mode has states (led string)
 InitNextEffect:				// read effect parameters from Modes array
@@ -207,11 +225,11 @@ rns_cnt:
 DrawLevel:
 		ldiw	X, StateParams  // встаем в начало массива управления сменой состояний
 		ldi		tempc, TapeLen
-		ldi		tempa, 1
+		ldi		tempa, 9
 dl_loop:
 		subi	tempb, 255/TapeLen // value of one point
 		brcc	dl_higher
-		ldi		tempa, 3
+		ldi		tempa, 5
 dl_higher:
 		rcall	Set_Color
 		dec		tempc
@@ -303,22 +321,30 @@ Modes:
 // 4 bytes for mode: ModeFlag, RepeatCnt, Begin addr, End addr
 //	Mode:  0bit = Reverse, 1bit = Mirror, 2,3 - reserve, 4-8 - speed 
 
-.DW		Ef_Rainbow_splash16*2, Ef_Rainbow_splash16_end*2
-//.DW		Ef_flash*2, Ef_flash_end*2
+//.DW		Ef_Rainbow_splash16*2, Ef_Rainbow_splash16_end*2
+.DW		Ef_flash*2, Ef_flash_end*2
 .DW		0xffff
 
 
 
 Ef_flash:
 .DB 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
-.DB 0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff
-.DB 0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0
-.DB 0x0f,0x0f,0x0f,0x0f,0x0f,0x0f,0x0f,0x0f
-.DB 0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0
-.DB 0x0f,0x0f,0x0f,0x0f,0x0f,0x0f,0x0f,0x0f
-.DB 0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0,0xf0
-.DB 0x0f,0x0f,0x0f,0x0f,0x0f,0x0f,0x0f,0x0f
-.DB 0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff
+.DB 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+.DB 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+.DB 0x00,0x00,0x0f,0xff,0xff,0xf0,0x00,0x00
+.DB 0x00,0x0f,0xff,0xff,0xff,0xff,0x00,0x00
+.DB 0x00,0xff,0xff,0xff,0xff,0xff,0xf0,0x00
+.DB 0x0f,0xff,0xff,0xff,0xff,0xff,0xff,0x00
+.DB 0x0f,0xff,0xff,0xff,0xff,0xff,0xff,0x00
+.DB 0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xf0
+.DB 0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xf0
+.DB 0x0f,0xff,0xff,0xff,0xff,0xff,0xff,0x00
+.DB 0x0f,0xff,0xff,0xff,0xff,0xff,0xff,0x00
+.DB 0x00,0xff,0xff,0xff,0xff,0xff,0xf0,0x00
+.DB 0x00,0x0f,0xff,0xff,0xff,0xff,0x00,0x00
+.DB 0x00,0x00,0x0f,0xff,0xff,0xf0,0x00,0x00
+.DB 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+.DB 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
 .DB 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
 Ef_flash_end:
 
@@ -357,6 +383,7 @@ ColorTable:	// G, R, B, reserved
 BegArr:			.BYTE	2	// адрес начала текущего эффекта (в авто-режиме)
 EndArr:			.BYTE	2	// адрес конца текущего эффекта
 NextProgLine:	.BYTE	2	// адрес след. строки программы эффектов
+
 
 // выводимое значение в ленту (цвета распакованы)
 StateParams:	.BYTE	TapeLen*3
