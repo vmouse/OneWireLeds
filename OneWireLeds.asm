@@ -2,7 +2,7 @@
  * OneWireLeds.asm
  *
  *  Created: 10.12.2013 21:24:08
- *   Author: vlad
+ *  Author: vlad
  */ 
 #define F_CPU	16000000
 #define	BAUD	57600
@@ -39,7 +39,7 @@
 .equ	led			= PB2	// data pin
 .equ	led_port	= PORTB // data port
 .equ	led_ddr		= DDRB  // direct databort
-.equ	power_led	= PB0
+.equ	power_led	= PB0   // power indicator
 
 .equ	DelayConst	= 200//200
 .equ	StateChange = 1
@@ -134,14 +134,15 @@ RESET:
 // Power indicator
 	cbi		led_port, power_led
 
-
 #ifdef	UART_USE_HARD
 	rcall	UART_init
 	ldiw	Z, msg_start*2		;Start up message
 	rcall	UART_out_str
 	sei							; Enable interrupts
 #endif
-/*
+
+/* 
+// Test manual inpuit
 ldi		r16, 'c'
 rcall	UART_put_into_buf
 ldi		r16, '0'
@@ -349,11 +350,9 @@ Output_ledtape:
 	ldi		tempc, TapeLen * 3
 	ldiw	X, StateParams + 5
 outloop:
-//	ld		tempb, -X
 	ld		tempb, X+
 	OutByte	tempb
 
-//	sbiw	X, 5
 	adiw	X, 5
 	dec		tempc
 	brne	outloop
@@ -372,10 +371,8 @@ WAIT400: // call = ~ 400us
 	nop
 	ret
 
-// division tempa:tempb / tempc
-// out:
-// r11:r10 - result
-// tempa:tempb - остаток
+// division [tempa:tempb] / tempc
+// results in  [r11:r10], [tempa:tempb] - remainder of division
 div16x8:
 	clr		r10
 	clr		r11
@@ -542,7 +539,6 @@ cp_loop16:
 		ld		r15, X	// CurHi
 		subiw	X, 1
 
-//		sbrs	r16, 7	// direction
 		cp		r14, r15 
 		brcs	cp16_fall			// fall mode if next < current
 		rjmp	cp16_raise
@@ -566,7 +562,6 @@ cp16_raise:
 cp_overrange16:
 		mov		r15, r14
 		clr		r13
-//		mov		r13, r11
 
 cp_storeval16:
 		st		X+, r13
@@ -651,7 +646,7 @@ scl_1:
 		brne	scl_1
 ret
 
-Set_Manual_Single:		// установить текущее значение конкретного элемента
+Set_Manual_Single:		// установить текущее значение конкретного элемента массива
 		wdr
 		ldiw	Y, UART_LineBuf // встаем в начало полученной строки
 		rcall	ByteFromHexLine
@@ -669,7 +664,7 @@ sms_2:
 		st		X, r16
 ret
 
-Set_Manual_Color:		// установить текущее значение цвета заданной тройки (светодиода)
+Set_Manual_Color:		// установить текущее значение цвета заданной тройки (RGB одного светодиода)
 		wdr
 		ldiw	Y, UART_LineBuf // встаем в начало полученной строки
 		rcall	ByteFromHexLine
@@ -737,22 +732,33 @@ msg_data:
 #endif
 
 Modes:	
-// 4 bytes for mode: ModeFlag, RepeatCnt, Begin addr, End addr
-//	Mode:  0bit = Reverse, 1bit = Mirror, 2,3 - reserve, 4-8 - speed 
+// Mode description:
+//   RepeatCnt byte (0 - to skip effect, FF - repeat effect 255 times)
+//	 ModeFlag - bit mask:
+//			7-4 bits (high half byte) - Speed (0 - min, 255 - max)
+//			3,2 bits - reserved,
+//			1 bit - 0 - normal, 1 - Mirror effect lines (walk array from begin to end, but flip each line
+//			0 bit - 0 - normal, 1 - Reverse efect array (walk array from end to begin)
+//   Effect array addresses: Begin, End effect (don't forget to multiply by 2 if effect array placed on the code segment)
+//
+// Example mode string:
+// .DW		0x0200, Ef_Flash_BW_soft*2, Ef_Flash_BW_soft_End*2
+//			Repeat twice, Speed = 0 (minimal), normal playback from Ef_Flash_BW_soft to Ef_Flash_BW_soft_End
+//
+// .DW		0x10C2, Ef_Rainbow_white*2, Ef_Rainbow_white_End*2
+//			Repeat 16 times (0x10), Speed = 12 (0xC - very fast), Mirrored playback from Ef_Rainbow_white*2 to Ef_Rainbow_white_End*2
+//
+//
+// Effect array description:
+//			Raise steps byte (number of steps to set color, 1 - sharp switch, 255 - smoothly switch) 
+//			Wait steps byte  (number of steps to wait)
+//			Fall steps byte  (number of steps to fall down to next line color)
+//			Skip byte		 (not used)
+//			Colors array	 (each color = half byte, thus two leds are packed in single byte, number of bytes = TapeLen / 2)
+// Example for two steps effect:
+// .DB		15,16,12,1,	0x12,0x34,0x56,0x78,0x9a,0xbc  - set 12 leds to colors 1,2,3,4,5,6,7,9,10,11,12 in 15 cycles (moderately smoothly), than wait 16 cycles and switch to next line
+// .DB		15,16,12,1,	0x00,0x00,0x00,0x00,0x00,0x00  - turn off all leds (black) in 15 cycles
 
-//.DW		0x01E2, Ef_White*2, Ef_White_End*2
-
-//.DW		0x0101, Ef_Flash_BW*2, Ef_Flash_BW_End*2
-//.DW		0x18E2, Ef_Rainbow*2, Ef_Rainbow_End*2
-
-
-//.DW		0x0300, Ef_Flash_BW_soft*2, Ef_Flash_BW_soft_End*2
-
-//.DW		0x0200, Ef_Light_BW_pair*2, Ef_Light_BW_pair_End*2
-
-//.DW		0x0500, Ef_Light_BW_dark_wave*2, Ef_Light_BW_dark_wave_End*2
-
-//.DW		0x0280, Ef_new*2, Ef_new_End*2
 
 .DW		0x0200, Ef_Flash_BW_soft*2, Ef_Flash_BW_soft_End*2
 .DW		0x0100, Ef_White_soft*2, Ef_White_soft_End*2
@@ -805,7 +811,6 @@ Ef_Flash_BW_End:
 Ef_Flash_BW_soft:
 Ef_White_soft:
 .DB   127,128,127,1,  0xff,0xff,0xff,0xff,0xff,0xff
-//.DB   127,128,127,1,  0xee,0xee,0xee,0xee,0xee,0xee
 Ef_White_soft_End:
 Ef_Black_soft:
 .DB   127,128,127,1,  0,0,0,0,0,0
@@ -903,9 +908,6 @@ Ef_RainAll:
 .DB   255,255,255,1,  0x66,0x66,0x66,0x66,0x66,0x66
 .DB   255,255,255,1,  0x77,0x77,0x77,0x77,0x77,0x77
 Ef_RainAll_End:
-
-.DB	16,16,16,1,	0x12,0x34,0x56,0x7f,0xff,0xff
-.DB	16,16,16,1,	0x00,0x00,0x00,0x00,0x00,0x00
 
 Ef_single_light_orange:
 .DB 63,64,63,1,	0x20,0x00,0x00,0x00,0x00,0x0b
