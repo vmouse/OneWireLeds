@@ -2,7 +2,7 @@
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectVersion>6.2</ProjectVersion>
+    <ProjectVersion>7.0</ProjectVersion>
     <ToolchainName>com.Atmel.AVRAssembler</ToolchainName>
     <ProjectGuid>{e3d784f8-f589-45d2-bcf1-1b2973f6ec55}</ProjectGuid>
     <avrdeviceseries>none</avrdeviceseries>
@@ -26,14 +26,14 @@
     <BootSegment>2</BootSegment>
     <eraseonlaunchrule>0</eraseonlaunchrule>
     <AsfFrameworkConfig>
-      <framework-data xmlns="">
+      <framework-data>
         <options />
         <configurations />
         <files />
         <documentation help="" />
         <offline-documentation help="" />
         <dependencies>
-          <content-extension eid="atmel.asf" uuidref="Atmel.ASF" version="3.11.0" />
+          <content-extension eid="atmel.asf" uuidref="Atmel.ASF" version="3.18.1" />
         </dependencies>
       </framework-data>
     </AsfFrameworkConfig>
@@ -52,6 +52,7 @@
     </com_atmel_avrdbg_tool_simulator>
     <avrtoolinterface />
     <preserveEEPROM>true</preserveEEPROM>
+    <ExternalProgrammingToolCommand />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <ToolchainSettings>
@@ -59,9 +60,11 @@
         <avrasm.assembler.general.AdditionalIncludeDirectories>
           <ListValues>
             <Value>../../../libasm</Value>
+            <Value>%24(PackRepoDir)\atmel\ATtiny_DFP\1.0.68\avrasm\inc</Value>
+            <Value>%24(PackRepoDir)\atmel\ATtiny_DFP\1.0.68\avrasm\inc</Value>
           </ListValues>
         </avrasm.assembler.general.AdditionalIncludeDirectories>
-        <avrasm.assembler.general.IncludeFile>(%24IncludeFile)</avrasm.assembler.general.IncludeFile>
+        <avrasm.assembler.general.IncludeFile>tn85def.inc</avrasm.assembler.general.IncludeFile>
       </AvrAssembler>
     </ToolchainSettings>
     <OutputType>Executable</OutputType>
@@ -69,7 +72,13 @@
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <ToolchainSettings>
       <AvrAssembler>
-        <avrasm.assembler.general.IncludeFile>(%24IncludeFile)</avrasm.assembler.general.IncludeFile>
+        <avrasm.assembler.general.AdditionalIncludeDirectories>
+          <ListValues>
+            <Value>%24(PackRepoDir)\atmel\ATtiny_DFP\1.0.68\avrasm\inc</Value>
+            <Value>%24(PackRepoDir)\atmel\ATtiny_DFP\1.0.68\avrasm\inc</Value>
+          </ListValues>
+        </avrasm.assembler.general.AdditionalIncludeDirectories>
+        <avrasm.assembler.general.IncludeFile>tn85def.inc</avrasm.assembler.general.IncludeFile>
       </AvrAssembler>
     </ToolchainSettings>
   </PropertyGroup>
