@@ -6,14 +6,16 @@
  */ 
 #define F_CPU	16000000
 #define	BAUD	57600
-//#define	USE_UART_text
-//#define UART_MaxInputSize 128	// maximum length of input line
-//#define TERMINAL_ECHO			// - enable input echo 
-//#define UART_USE_HARD
-//#define UART_USE_SOFT
-//#define	UART_ReceiveBufSize	64
 
-//#define UART_USE_SOFT
+#define	SUART_INVERSE
+#define	USE_UART_text
+#define UART_MaxInputSize 128	// maximum length of input line
+#define TERMINAL_ECHO			// - enable input echo 
+
+//#define UART_USE_HARD
+#define UART_USE_SOFT
+#define	UART_ReceiveBufSize	64
+
 //#define UART_SIMULATE
 //#define	NODELAY
 
@@ -134,11 +136,15 @@ RESET:
 // Power indicator
 	cbi		led_port, power_led
 
-#ifdef	UART_USE_HARD
-	rcall	UART_init
+#if defined(UART_USE_HARD) || defined(UART_USE_SOFT)
+	.include "..\..\libasm\UART.ASM"
+
+	#ifdef	UART_USE_HARD
+		sei							; Enable interrupts
+	#endif 
+	rcall	UART_INIT
 	ldiw	Z, msg_start*2		;Start up message
 	rcall	UART_out_str
-	sei							; Enable interrupts
 #endif
 
 /* 
@@ -720,8 +726,7 @@ ret
 
 #endif
 
-#ifdef	UART_USE_HARD
-.include "UART.ASM"
+#if defined(UART_USE_SOFT) || defined(UART_USE_HARD)
 
 msg_start:	
 			.db	0x0d, 0x0a, "WS2812 to UART gate "
@@ -735,7 +740,7 @@ Modes:
 // Mode description:
 //   RepeatCnt byte (0 - to skip effect, FF - repeat effect 255 times)
 //	 ModeFlag - bit mask:
-//			7-4 bits (high half byte) - Speed (0 - min, 255 - max)
+//			7-4 bits (high half byte) - Speed (0 - min, 15 - max)
 //			3,2 bits - reserved,
 //			1 bit - 0 - normal, 1 - Mirror effect lines (walk array from begin to end, but flip each line
 //			0 bit - 0 - normal, 1 - Reverse efect array (walk array from end to begin)
@@ -778,8 +783,8 @@ Modes:
 .DW		0x0100, Ef_single_light_orange*2, Ef_single_light_orange_End*2
 .DW		0x0102, Ef_single_light_orange*2, Ef_single_light_orange_End*2
 
-.DW		0x0882, Ef_Rainbow*2, Ef_Rainbow_End*2
-.DW		0x08A0, Ef_Rainbow*2, Ef_Rainbow_End*2
+.DW		0x10E0, Ef_spectrum*2, Ef_spectrum_End*2
+.DW		0x10E2, Ef_spectrum*2, Ef_spectrum_End*2
 
 .DW		0x0100, Ef_single_light_volett*2, Ef_single_light_volett_End*2
 .DW		0x0102, Ef_single_light_volett*2, Ef_single_light_volett_End*2
@@ -787,7 +792,7 @@ Modes:
 .DW		0x10C2, Ef_Rainbow*2, Ef_Rainbow_End*2
 .DW		0x10E0, Ef_Rainbow*2, Ef_Rainbow_End*2
 
-.DW		0x0120, Ef_Rainbow_to_splash*2, Ef_Rainbow_to_splash_End*2
+.DW		0x01E0, Ef_Rainbow_to_splash*2, Ef_Rainbow_to_splash_End*2
 .DW		0x1082, Ef_Rainbow_splash*2, Ef_Rainbow_splash_End*2
 .DW		0x1080, Ef_Rainbow_splash*2, Ef_Rainbow_splash_End*2
 
@@ -874,6 +879,16 @@ Ef_Rainbow_to_splash:
 .DB   16,0,16,1,  0x54,0x32,0x17,0x65,0x43,0x21
 .DB   16,0,16,1,  0x65,0x43,0x21,0x76,0x54,0x32
 Ef_Rainbow_to_splash_End:
+
+Ef_spectrum:
+.DB 63,0,63,1,	0x12,0x34,0x56,0x71,0x23,0x45
+.DB 63,0,63,1,	0x23,0x45,0x67,0x12,0x34,0x56
+.DB 63,0,63,1,	0x34,0x56,0x71,0x23,0x45,0x67
+.DB 63,0,63,1,	0x45,0x67,0x12,0x34,0x56,0x71
+.DB 63,0,63,1,	0x56,0x71,0x23,0x45,0x67,0x12
+.DB 63,0,63,1,	0x67,0x12,0x34,0x56,0x71,0x23
+.DB 63,0,63,1,	0x71,0x23,0x45,0x67,0x12,0x34
+Ef_spectrum_end:
 
 Ef_Rainbow_splash:
 .DB 16,10,16,1,	0x12,0x34,0x56,0x71,0x23,0x45
