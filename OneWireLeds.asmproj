@@ -83,7 +83,13 @@
     </ToolchainSettings>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="AVR.INC">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="OneWireLeds.asm">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="UART.ASM">
       <SubType>Code</SubType>
     </Compile>
   </ItemGroup>

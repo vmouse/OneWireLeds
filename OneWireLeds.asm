@@ -7,14 +7,13 @@
 #define F_CPU	16000000
 #define	BAUD	57600
 
-#define	SUART_INVERSE
-#define	USE_UART_text
-#define UART_MaxInputSize 128	// maximum length of input line
-#define TERMINAL_ECHO			// - enable input echo 
+//#define	USE_UART_text
+//#define UART_MaxInputSize 128	// maximum length of input line
+//#define TERMINAL_ECHO			// - enable input echo 
 
 //#define UART_USE_HARD
-#define UART_USE_SOFT
-#define	UART_ReceiveBufSize	64
+//#define UART_USE_SOFT
+//#define	UART_ReceiveBufSize	64
 
 //#define UART_SIMULATE
 //#define	NODELAY
@@ -133,9 +132,6 @@ RESET:
 // Port init:
 	outi	led_ddr, (1<<led|1<<power_led)	// output for bus port
 
-// Power indicator
-	cbi		led_port, power_led
-
 #if defined(UART_USE_HARD) || defined(UART_USE_SOFT)
 	.include "..\..\libasm\UART.ASM"
 
@@ -167,6 +163,9 @@ rcall	UART_put_into_buf
 	rcall	ReadNextState
 
 	sbr		ModeFlag, bit7
+
+// Power indicator
+	cbi		led_port, power_led
 
 MainLoop:						// Основной цикл обработки перехода состояний
 
