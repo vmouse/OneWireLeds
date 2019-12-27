@@ -37,12 +37,23 @@
 .equ	TapeLen		= 20	// length of led tape
 .equ	ManualLen	= 20	// max length of led tape for manual output
 
+#message "Device " __PART_NAME__
+
+#if defined(_TN85DEF_INC) 
 .equ	led			= PB2	// data pin
 .equ	led_port	= PORTB // data port
 .equ	led_ddr		= DDRB  // direct databort
 .equ	power_led	= PB0   // power indicator
+#elif defined (_M328PDEF_INC_)
+.equ	led			= PD1	// data pin
+.equ	led_port	= PORTD // data port
+.equ	led_ddr		= DDRD  // direct databort
+.equ	power_led	= PD0   // power indicator
+#else
+	#error "Device is not supported!" __PART_NAME__
+#endif
 
-.equ	DelayConst	= 20//200
+.equ	DelayConst	= 200 //200
 .equ	StateChange = 1
 .equ	StateWait	= 2
 
@@ -66,6 +77,7 @@
 .endm
 
 .org 0
+#if defined(_TN85DEF_INC) 
 // IRQ vectors ATTINY85
 rjmp RESET ; Address 0x0000
 rjmp IRQ_def; INT0_ISR ; Address 0x0001
@@ -83,8 +95,8 @@ rjmp IRQ_def; WDT_ISR ; Address 0x000C
 rjmp IRQ_def; USI_START_ISR ; Address 0x000D
 rjmp IRQ_def; USI_OVF_ISR ; Address 0x000E
 
+#elif defined (_M328PDEF_INC_)
 // IRQ vectors ATMEGA328p
-/*
 	jmp RESET ; Reset Handler
 	jmp IRQ_def	;jmp EXT_INT0 ; IRQ0 Handler
 	jmp IRQ_def	;jmp EXT_INT1 ; IRQ1 Handler
@@ -115,7 +127,10 @@ rjmp IRQ_def; USI_OVF_ISR ; Address 0x000E
 	jmp IRQ_def	;jmp ANA_COMP ; Analog Comparator Handler
 	jmp IRQ_def	;jmp TWI ; 2-wire Serial Interface Handler
 	jmp IRQ_def	;jmp SPM_RDY ; Store Program Memory Ready Handler
-*/
+#else
+	#error "Device is not supported!"
+#endif // device specific interrupt vectors table
+
 IRQ_def:
 	reti
 
