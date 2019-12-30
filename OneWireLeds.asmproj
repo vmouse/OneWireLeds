@@ -37,7 +37,8 @@
         </dependencies>
       </framework-data>
     </AsfFrameworkConfig>
-    <avrtool>com.atmel.avrdbg.tool.simulator</avrtool>
+    <avrtool>
+    </avrtool>
     <com_atmel_avrdbg_tool_simulator>
       <ToolOptions>
         <InterfaceProperties>
@@ -76,7 +77,6 @@
   <avrasm.assembler.general.AdditionalIncludeDirectories>
     <ListValues>
       <Value>../../../libasm</Value>
-      <Value>%24(PackRepoDir)\atmel\ATtiny_DFP\1.0.68\avrasm\inc</Value>
       <Value>%24(PackRepoDir)\Atmel\ATmega_DFP\1.4.346\avrasm\inc</Value>
     </ListValues>
   </avrasm.assembler.general.AdditionalIncludeDirectories>
