@@ -1,63 +1,68 @@
-/*
- * OneWireLeds.asm
- *
- *  Created: 10.12.2013 21:24:08
- *  Author: vlad
- */ 
+;/*
+; * OneWireLeds.asm
+; *
+; *  Created: 10.12.2013 21:24:08
+; *  Author: vlad
+; */ 
 #define F_CPU	16000000
 #define	BAUD	57600
+.include "tn85def.inc"
 
-//#define	USE_UART_text
-//#define UART_MaxInputSize 128	// maximum length of input line
-//#define TERMINAL_ECHO			// - enable input echo 
 
-//#define UART_USE_HARD
-//#define UART_USE_SOFT
-//#define	UART_ReceiveBufSize	64
+;#define DEVICE "ATtiny85"
 
-//#define UART_SIMULATE
-//#define	NODELAY
+;#define	USE_UART_text
+;#define UART_MaxInputSize 128	; maximum length of input line
+;#define TERMINAL_ECHO			; - enable input echo 
+
+;#define UART_USE_HARD
+;#define UART_USE_SOFT
+;#define	UART_ReceiveBufSize	64
+
+;#define UART_SIMULATE
+;#define	NODELAY
 
 .def	tempa	= r16
 .def	tempb	= r17
 .def	tempc	= r18
-.def	ModeFlag		= r19 // flag bits: 0 = reverse, 1 = mirror, 7 - auto next state
+.def	ModeFlag		= r19 ; flag bits: 0 = reverse, 1 = mirror, 7 - auto next state
 
-.def	ManualCmd		= r20 // флаги ручного ввода: bit0 - есть команда, bit7 - ручная команда в процессе выполнения, после выполнения - стоп. bit6 - непрерывный цикл выполнения стадии Change
+.def	ManualCmd		= r20 ; флаги ручного ввода: bit0 - есть команда, bit7 - ручная команда в процессе выполнения, после выполнения - стоп. bit6 - непрерывный цикл выполнения стадии Change
 .def	RepeatCnt		= r21		
 .def	RaiseSteps		= r22
 .def	FallSteps		= r23
 .def	NextFallSteps	= r24
 .def	WaitDelay		= r25
 
-.def	DelayCount	= r2	//  Speed regulator
-.def	StepCnt		= r8	// step counter in current state 
+.def	DelayCount	= r2	;  Speed regulator
+.def	StepCnt		= r8	; step counter in current state 
 
 
-#define	TapeLen		20	// length of led tape. allowable values are 12 and 20
-#define	ManualLen	20	// max length of led tape for manual output
+#define	TapeLen		20	; length of led tape. allowable values are 12 and 20
+#define	ManualLen	20	; max length of led tape for manual output
 
-#message "Device " __PART_NAME__
 
 #if defined(_TN85DEF_INC_) 
-.equ	led			= PB2	// data pin
-.equ	led_port	= PORTB // data port
-.equ	led_ddr		= DDRB  // direct databort
-.equ	power_led	= PB0   // power indicator
+#message "Device ATTiny85"
+.equ	led			= PB2	; data pin
+.equ	led_port	= PORTB ; data port
+.equ	led_ddr		= DDRB  ; direct databort
+.equ	power_led	= PB0   ; power indicator
 #elif defined (_M328PDEF_INC_)
-.equ	led			= PD1	// data pin
-.equ	led_port	= PORTD // data port
-.equ	led_ddr		= DDRD  // direct databort
-.equ	power_led	= PD0   // power indicator
+#message "Device ATMega328"
+.equ	led			= PD1	; data pin
+.equ	led_port	= PORTD ; data port
+.equ	led_ddr		= DDRD  ; direct databort
+.equ	power_led	= PD0   ; power indicator
 #else
 	#error "Device is not supported!" __PART_NAME__
 #endif
 
-.equ	DelayConst	= 200 //200
+.equ	DelayConst	= 200 ;200
 .equ	StateChange = 1
 .equ	StateWait	= 2
 
-.include "..\..\libasm\avr.inc"
+.include "avr.inc"
 
 ; OutByte	Reg (not tempa!)
 .macro	OutByte 	
@@ -78,7 +83,7 @@
 
 .org 0
 #if defined(_TN85DEF_INC_) 
-// IRQ vectors ATTINY85
+; IRQ vectors ATTINY85
 rjmp RESET ; Address 0x0000
 rjmp IRQ_def; INT0_ISR ; Address 0x0001
 rjmp IRQ_def; PCINT0_ISR ; Address 0x0002
@@ -96,7 +101,7 @@ rjmp IRQ_def; USI_START_ISR ; Address 0x000D
 rjmp IRQ_def; USI_OVF_ISR ; Address 0x000E
 
 #elif defined (_M328PDEF_INC_)
-// IRQ vectors ATMEGA328p
+; IRQ vectors ATMEGA328p
 	jmp RESET ; Reset Handler
 	jmp IRQ_def	;jmp EXT_INT0 ; IRQ0 Handler
 	jmp IRQ_def	;jmp EXT_INT1 ; IRQ1 Handler
@@ -129,24 +134,24 @@ rjmp IRQ_def; USI_OVF_ISR ; Address 0x000E
 	jmp IRQ_def	;jmp SPM_RDY ; Store Program Memory Ready Handler
 #else
 	#error "Device is not supported!"
-#endif // device specific interrupt vectors table
+#endif ; device specific interrupt vectors table
 
 IRQ_def:
 	reti
 
 RESET:
 
-// Stack init:
+; Stack init:
 	outi	SPH, high(RAMEND)
 	outi	SPL, low(RAMEND)
 
-// WatchDog init:
+; WatchDog init:
 	wdr
-	stsi	WDTCSR, (1<<WDCE)|(1<<WDE)	// change mode enable
-	stsi	WDTCSR, (1<<WDP3)|(0<<WDP2)|(0<<WDP1)|(1<<WDP0)|(0<<WDCE)|(0<<WDE) // reset after 8 sec hang
+	stsi	WDTCSR, (1<<WDCE)|(1<<WDE)	; change mode enable
+	stsi	WDTCSR, (1<<WDP3)|(0<<WDP2)|(0<<WDP1)|(1<<WDP0)|(0<<WDCE)|(0<<WDE) ; reset after 8 sec hang
 
-// Port init:
-	outi	led_ddr, (1<<led|1<<power_led)	// output for bus port
+; Port init:
+	outi	led_ddr, (1<<led|1<<power_led)	; output for bus port
 
 
 #if defined(UART_USE_HARD) || defined(UART_USE_SOFT)
@@ -160,20 +165,20 @@ RESET:
 	rcall	UART_out_str
 #endif
 
-/* 
-// Test manual inpuit
-ldi		r16, 'c'
-rcall	UART_put_into_buf
-ldi		r16, '0'
-rcall	UART_put_into_buf
-ldi		r16, '1'
-rcall	UART_put_into_buf
-ldi		r16, '0'
-rcall	UART_put_into_buf
-ldi		r16, '1'
-rcall	UART_put_into_buf
-*/
-//rjmp Read_manual_single_color
+;/* 
+; Test manual inpuit
+;ldi		r16, 'c'
+;rcall	UART_put_into_buf
+;ldi		r16, '0'
+;rcall	UART_put_into_buf
+;ldi		r16, '1'
+;rcall	UART_put_into_buf
+;ldi		r16, '0'
+;rcall	UART_put_into_buf
+;ldi		r16, '1'
+;rcall	UART_put_into_buf
+;*/
+;rjmp Read_manual_single_color
 
 	rcall	InitVariables
 	rcall	InitEffectState
@@ -181,50 +186,50 @@ rcall	UART_put_into_buf
 
 	sbr		ModeFlag, bit7
 
-// Power indicator
+; Power indicator
 	cbi		led_port, power_led
 
-MainLoop:						// Основной цикл обработки перехода состояний
+MainLoop:						; Основной цикл обработки перехода состояний
 
-	//		Фаза перехода
+	;		Фаза перехода
 	mov		StepCnt, RaiseSteps
 	rcall	Change_Phase
-	brts	ManualInput		// T = был ручной ввод через UART
+	brts	ManualInput		; T = был ручной ввод через UART
 
-	//		Фаза задержки
+	;		Фаза задержки
 	mov		StepCnt, WaitDelay
 	rcall	Change_Phase	
-	brts	ManualInput		// T = был ручной ввод через UART
+	brts	ManualInput		; T = был ручной ввод через UART
 
-	mov		FallSteps, NextFallSteps	// уст. скорость затухания текущего эффекта для следующей фазы перехода
+	mov		FallSteps, NextFallSteps	; уст. скорость затухания текущего эффекта для следующей фазы перехода
 
-	sbrc	ModeFlag, 7		// пропуск след. если не авторежим
-	rcall	NextEffectState // устанавливаем новые значения к которым переходить
+	sbrc	ModeFlag, 7		; пропуск след. если не авторежим
+	rcall	NextEffectState ; устанавливаем новые значения к которым переходить
 
 	rjmp	MainLoop
 
 ManualInput:
 #ifdef	UART_USE_HARD
 	cbr		ManualCmd, bit0
-	rcall	UART_receive		// read cmd byte
+	rcall	UART_receive		; read cmd byte
 	rcall	UpperCase_char
 
-//	First	group of parametrized commands
+;	First	group of parametrized commands
 	cpi		r16, 'L'
-	breq	Read_manual_line_data	// запросить линейку перехода в новое состояние и дождаться выполнения к нему
+	breq	Read_manual_line_data	; запросить линейку перехода в новое состояние и дождаться выполнения к нему
 
 	cpi		r16, 'S'
-	breq	Read_manual_single_data // установить текущую яркость заданного элемента, после чего будет выполняться переход из него
+	breq	Read_manual_single_data ; установить текущую яркость заданного элемента, после чего будет выполняться переход из него
 
 	cpi		r16, 'C'
-	breq	Read_manual_single_color // установть заданный цвет из таблицы для светодиода (тройка цветов)
+	breq	Read_manual_single_color ; установть заданный цвет из таблицы для светодиода (тройка цветов)
 	
 	cpi		r16, 'O'
 	brne	mi_next3
-	rjmp	Read_manual_all_color // установить заданный цвет RGB для всей ленты и не менять его (выключить автопереход)
+	rjmp	Read_manual_all_color ; установить заданный цвет RGB для всей ленты и не менять его (выключить автопереход)
 mi_next3:
 
-	rcall	ShowPrompt	// Second group - immediately run commands
+	rcall	ShowPrompt	; Second group - immediately run commands
 	cpi		r16, 'R'
 	breq	RESET
 	cpi		r16, 'A'
@@ -257,7 +262,7 @@ CmdMirror:
 	rjmp	MainLoop
 
 
-NextEffectState:				// Переход на след.эффект
+NextEffectState:				; Переход на след.эффект
 	rcall	ReadNextState
 	rettc
 
@@ -266,13 +271,13 @@ NextEffectState:				// Переход на след.эффект
 InitEffectState:
 	rcall	InitNextEffect
 nes_set_pointer:
-	sbrc	ModeFlag, 0			// Skip if Reverse bit not set
+	sbrc	ModeFlag, 0			; Skip if Reverse bit not set
 	rjmp	nes_reverse
 nes_forward:
-	ldsw	Z, BegArr			// Reload Z to begin of effect array
+	ldsw	Z, BegArr			; Reload Z to begin of effect array
 	rjmp	NextEffectState
 nes_reverse:
-	ldsw	Z, EndArr			// Reload Z to end of effect array
+	ldsw	Z, EndArr			; Reload Z to end of effect array
 	rjmp	NextEffectState
 
 #ifdef	UART_USE_HARD
@@ -306,10 +311,10 @@ Read_manual_line_data:
 	rjmp	CmdStepMode
 #endif
 
-// Erase variables and set to default:
+; Erase variables and set to default:
 InitVariables:
 	ldiw	X, StateParams
-//	ldi		tempa, TapeLen*3*6
+;	ldi		tempa, TapeLen*3*6
 	ldi		tempa, TapeLen*3
 	clr		tempb
 eraloop:
@@ -323,15 +328,15 @@ eraloop:
 	brne	eraloop
 
 
-	// set start values
+	; set start values
 	stsi	NextProgLine, Low(Modes*2)
 	stsi	NextProgLine+1, High(Modes*2)
 	ret
 
-InitNextEffect:				// read effect parameters from Modes array
+InitNextEffect:				; read effect parameters from Modes array
 	clr		ManualCmd
-	ldsw	Z, NextProgLine // Load program address (Modes)
-	lpm		tempa, Z+		//Read ModeFlag  or FF - end of program
+	ldsw	Z, NextProgLine ; Load program address (Modes)
+	lpm		tempa, Z+		;Read ModeFlag  or FF - end of program
 	cpi		tempa, 0xff
 	brne	ine_read_params
 	stsi	NextProgLine, Low(Modes*2)
@@ -345,32 +350,32 @@ ine_read_params:
 	com		tempa
 	andi	tempa, 0xf0
 	mov		DelayCount, tempa
-	lpm		RepeatCnt, Z+	// RepeatCnt
-	lpm		tempa, Z+		// Begin addr low
+	lpm		RepeatCnt, Z+	; RepeatCnt
+	lpm		tempa, Z+		; Begin addr low
 	sts		BegArr, tempa
-	lpm		tempa, Z+		// Begin addr high
+	lpm		tempa, Z+		; Begin addr high
 	sts		BegArr+1, tempa
-	lpm		tempa, Z+		// End addr low
+	lpm		tempa, Z+		; End addr low
 	sts		EndArr, tempa
-	lpm		tempa, Z+		// End addr high
+	lpm		tempa, Z+		; End addr high
 	sts		EndArr+1, tempa
-	stsw	NextProgLine, Z // Store program address (Modes)
+	stsw	NextProgLine, Z ; Store program address (Modes)
 	ret 
 
 
-// Change Loop: raise light with raise speed, fall light with fall speed or wait
+; Change Loop: raise light with raise speed, fall light with fall speed or wait
 Change_Phase:
 	tst		StepCnt
-	reteq	// return if equal
+	reteq	; return if equal
 	rcall	CalcPWM
 	rcall	Output_ledtape
-	rcall	delay_output	//  задержка определяющая скорость перехода (тут происходит опрос UART, T=1 если есть команда)
+	rcall	delay_output	;  задержка определяющая скорость перехода (тут происходит опрос UART, T=1 если есть команда)
 	retts
 	dec		StepCnt
 	rjmp	Change_Phase
 
 
-// Out led array
+; Out led array
 Output_ledtape:
 	push	tempa
 	push	tempc
@@ -382,7 +387,7 @@ outloop:
 	ld		tempb, X+
 	OutByte	tempb
 
-	adiw	X, 5
+	addiw	X, 5
 	dec		tempc
 	brne	outloop
 	cbi		led_port, led
@@ -396,12 +401,12 @@ stop:
 	rjmp	STOP
 
 
-WAIT400: // call = ~ 400us
+WAIT400: ; call = ~ 400us
 	nop
 	ret
 
-// division [tempa:tempb] / tempc
-// results in  [r11:r10], [tempa:tempb] - remainder of division
+; division [tempa:tempb] / tempc
+; results in  [r11:r10], [tempa:tempb] - remainder of division
 div16x8:
 	clr		r10
 	clr		r11
@@ -421,13 +426,13 @@ div16_result:
 	add		tempb, tempc
 	ret
 
-// берем из r16 следующий параметр
-// пишем их в [X] и считаем приращение перехода (X16) в новое значение из старого за FallSteps/RaiseSteps шагов
-// Для каждого цвета RGB по 6 байт:
-//	- След.состояние (8 бит), 
-//	- Флаги (0 Raise, ff - fall), 
-//	- Приращение перехода x 256 (16 бит): XLo, XHi
-//	- Текущее состояние x 256 (16 бит): Lo, Hi
+; берем из r16 следующий параметр
+; пишем их в [X] и считаем приращение перехода (X16) в новое значение из старого за FallSteps/RaiseSteps шагов
+; Для каждого цвета RGB по 6 байт:
+;	- След.состояние (8 бит), 
+;	- Флаги (0 Raise, ff - fall), 
+;	- Приращение перехода x 256 (16 бит): XLo, XHi
+;	- Текущее состояние x 256 (16 бит): Lo, Hi
 
 Calc_Step_params16:
 		push	tempb
@@ -435,35 +440,35 @@ Calc_Step_params16:
 		push	r10
 		push	r11
 		push	r12
-		st		X+, r16		// пишем будущее значения перехода в PWM
+		st		X+, r16		; пишем будущее значения перехода в PWM
 
-		adiw	X, 4		// прыгаем в конец записи, забрать текущее / 256 (т.е. старший байт)
-		ld		r12, X		// R12 = текущеее значения (нужно для расчета коэф.перехода X1, X2, X3)
+		addiw	X, 4		; прыгаем в конец записи, забрать текущее / 256 (т.е. старший байт)
+		ld		r12, X		; R12 = текущеее значения (нужно для расчета коэф.перехода X1, X2, X3)
 
-		sbiw	X, 4		// возвращаемся
+		subiw	X, 4		; возвращаемся
 		clr		r10
-		cp		r16, r12	// Определяем направление (зажигание или затухание)
+		cp		r16, r12	; Определяем направление (зажигание или затухание)
 		brcc	csp16_inc_mode
 csp16_dec_mode:
-		dec		r10	// флаг затухания = FF
-		SwapReg	r16, r12, tempb // меням r11 <=> r12
+		dec		r10	; флаг затухания = FF
+		SwapReg	r16, r12, tempb ; меням r11 <=> r12
 		mov		tempc, FallSteps
 		rjmp	csp16_calc
 csp16_inc_mode:
 		mov		tempc, RaiseSteps
 
 csp16_calc:		
-		st		X+, r10			// пишем направление (затухание/зажигание)
+		st		X+, r10			; пишем направление (затухание/зажигание)
 
-		// расчет X = Delta * 256 / Steps = (r11-r12)*256/tempc
-		sub		tempa, r12		// r13 = delta (текущее - будущее)
-		clr		tempb			// tempa:tempb = delta * 256
-		rcall	div16x8			// tempa:tempb / tempc
+		; расчет X = Delta * 256 / Steps = (r11-r12)*256/tempc
+		sub		tempa, r12		; r13 = delta (текущее - будущее)
+		clr		tempb			; tempa:tempb = delta * 256
+		rcall	div16x8			; tempa:tempb / tempc
 		
-		st		X+, r10			// пишем Xlo
-		st		X+, r11			// пишем Xhi
+		st		X+, r10			; пишем Xlo
+		st		X+, r11			; пишем Xhi
 
-		adiw	X, 2			// пропускаем текущее значение
+		addiw	X, 2			; пропускаем текущее значение
 		pop		r12
 		pop		r11
 		pop		r10
@@ -477,43 +482,43 @@ ret
 ; tempa - broken
 ; T-flag = clear - Ok, Set - Out of range
 ReadNextState:
-		wdr						// сброс таймера собаки
-		set						// взводим флаг ошибки
-		sbrs	ModeFlag, 0		// пропуск если Reverse 
+		wdr						; сброс таймера собаки
+		set						; взводим флаг ошибки
+		sbrs	ModeFlag, 0		; пропуск если Reverse 
 		rjmp	rns_check_beg
-		subiw	Z, TapeLen/2+4	// в режиме реверса отходим на предыдущий шаг эффекта
+		subiw	Z, TapeLen/2+4	; в режиме реверса отходим на предыдущий шаг эффекта
 
-rns_check_beg:					// проверка на выходы за пределы массива эффекта, при обратном ходе
+rns_check_beg:					; проверка на выходы за пределы массива эффекта, при обратном ходе
 		ldsw	Y, BegArr
 		cpw		Z, Y
-		brcc	rns_check_end	// Z >= begin
+		brcc	rns_check_end	; Z >= begin
 		ret
 
-rns_check_end:					// проверка на выходы за пределы массива эффекта, при прямом ходе
+rns_check_end:					; проверка на выходы за пределы массива эффекта, при прямом ходе
 		ldsw	Y, EndArr
 		cpw		Z, Y		
-		brcs	rns_init		// Z < end
-		ret		// выход с ошибкой (за концом списка режимов)
+		brcs	rns_init		; Z < end
+		ret		; выход с ошибкой (за концом списка режимов)
 
 rns_init:
 		lpm		RaiseSteps, Z+
 rns1:	; читаем оставшиеся байты задерек
 		lpm		WaitDelay, Z+
 		lpm		NextFallSteps, Z+
-		adiw	Z,1				// пропускаем байт выравнивания (в ручном режиме это кол-во светодиодов в линии)
+		addiw	Z,1				; пропускаем байт выравнивания (в ручном режиме это кол-во светодиодов в линии)
 
 		; читаем след.состояние
-		ldi		tempc, TapeLen/2	// длина массива состояний
-		sbrc	ModeFlag, 1		// пропуск если бит Mirror сброшен
+		ldi		tempc, TapeLen/2	; длина массива состояний
+		sbrc	ModeFlag, 1		; пропуск если бит Mirror сброшен
 		rjmp	rns_set_end
-		ldiw	X, StateParams  // встаем в начало массива управления сменой состояний
+		ldiw	X, StateParams  ; встаем в начало массива управления сменой состояний
 		rjmp	rns2
 
 rns_set_end:
-		ldiw	X, StateParams+(TapeLen-1)*3*6	// встаем в конец массива управления сменой состояний
+		ldiw	X, StateParams+(TapeLen-1)*3*6	; встаем в конец массива управления сменой состояний
 
 rns2:
-		lpm		tempa, Z+			// берем два значения цвета
+		lpm		tempa, Z+			; берем два значения цвета
 		push	tempa
 		swap	tempa
 		andi	tempa, 0x0f
@@ -525,13 +530,13 @@ rns2:
 rns_cnt:
 		dec		tempc
 		brne	rns2
-		clt						// выход без ошибки
-		sbrs	ModeFlag, 0		// пропуск если Reverse
+		clt						; выход без ошибки
+		sbrs	ModeFlag, 0		; пропуск если Reverse
 		ret
-		subiw	Z, TapeLen/2+4	// в режиме реверса ходим назад
+		subiw	Z, TapeLen/2+4	; в режиме реверса ходим назад
 		ret
 
-Calc_Color:	// calc color  by index in tempa (0..15)
+Calc_Color:	; calc color  by index in tempa (0..15)
 		pushw	Z
 		lsl		tempa
 		lsl		tempa
@@ -547,45 +552,45 @@ Calc_Color:	// calc color  by index in tempa (0..15)
 		rcall	Calc_Step_params16
 		popw	Z
 
-		sbrc	ModeFlag, 1		// пропуск если бит Mirror очищен
-		sbiw	X,2*3*6			// откатываемся на предыдущий элемент если идем зеркально
+		sbrc	ModeFlag, 1		; пропуск если бит Mirror очищен
+		subiw	X,2*3*6			; откатываемся на предыдущий элемент если идем зеркально
 		ret
 
 
-// вариант расчета:
-// деление на каждом шагу, храним текущее значение, будущее и где-то в регистре оставшееся кол-во шагов (нужно оптимизировать деление на 1 и 2)
-// соотв. делаем деление разницы на шаги, из плюсов - не нужно проверять граничные условия
-// curr + next = 2 байта на цвет
+; вариант расчета:
+; деление на каждом шагу, храним текущее значение, будущее и где-то в регистре оставшееся кол-во шагов (нужно оптимизировать деление на 1 и 2)
+; соотв. делаем деление разницы на шаги, из плюсов - не нужно проверять граничные условия
+; curr + next = 2 байта на цвет
 CalcPWM:
 		ldiw	X, StateParams
 		ldi		tempc, TapeLen*3
 cp_loop16:
-		ld		r14, X+	// next state
-		ld		r16, X+	// direction (zerro if raise, else fall)
-		ld		r11, X+	// Xlo - приращение на шаг
-		ld		r12, X+	// Xhi
-		ld		r13, X+	// CurLo - текущее значение
-		ld		r15, X	// CurHi
+		ld		r14, X+	; next state
+		ld		r16, X+	; direction (zerro if raise, else fall)
+		ld		r11, X+	; Xlo - приращение на шаг
+		ld		r12, X+	; Xhi
+		ld		r13, X+	; CurLo - текущее значение
+		ld		r15, X	; CurHi
 		subiw	X, 1
 
 		cp		r14, r15 
-		brcs	cp16_fall			// fall mode if next < current
+		brcs	cp16_fall			; fall mode if next < current
 		rjmp	cp16_raise
 
 cp16_fall:
 		sub		r13, r11
 		sbc		r15, r12
-		brcs	cp_overrange16		// exit if current < 0
+		brcs	cp_overrange16		; exit if current < 0
 		cp		r14, r15
-		brcc	cp_overrange16		// exit if current <= next
+		brcc	cp_overrange16		; exit if current <= next
 		rjmp	cp_storeval16
 
 cp16_raise:
 		add		r13, r11
 		adc		r15, r12
-		brcs	cp_overrange16		// exit if current >255
+		brcs	cp_overrange16		; exit if current >255
 		cp		r15, r14
-		brcc	cp_overrange16		// exit if current >= next
+		brcc	cp_overrange16		; exit if current >= next
 		rjmp	cp_storeval16
 
 cp_overrange16:
@@ -628,7 +633,7 @@ dl3:
 		pop		tempa
 ret
 
-ShowPrompt:		// UART Show prompt
+ShowPrompt:		; UART Show prompt
 #ifdef UART_USE_HARD
 	pushw	Z
 	push	tempa
@@ -640,10 +645,10 @@ ShowPrompt:		// UART Show prompt
 	ret
 
 #ifdef	UART_USE_HARD
-Set_Manual_State:				// установить текущий эффект (будущие значения в которые перейти) из строки ввода
+Set_Manual_State:				; установить текущий эффект (будущие значения в которые перейти) из строки ввода
 		wdr
-		ldiw	X, StateParams  // встаем в начало массива управления сменой состояний
-		ldiw	Y, UART_LineBuf // встаем в начало полученной строки
+		ldiw	X, StateParams  ; встаем в начало массива управления сменой состояний
+		ldiw	Y, UART_LineBuf ; встаем в начало полученной строки
 		; читаем настройки перехода
 		ld		r17, Y+
 		ld		r18, Y+
@@ -669,47 +674,47 @@ Set_Manual_State:				// установить текущий эффект (буд
 scl_1:
 		ld		r17, Y+
 		ld		r18, Y+
-		rcall	Hex2ToBin			// [r17][r18] => r16
-		rcall	Calc_Step_params16	// расчет параметров канала 
+		rcall	Hex2ToBin			; [r17][r18] => r16
+		rcall	Calc_Step_params16	; расчет параметров канала 
 		dec		r10
 		brne	scl_1
 ret
 
-Set_Manual_Single:		// установить текущее значение конкретного элемента массива
+Set_Manual_Single:		; установить текущее значение конкретного элемента массива
 		wdr
-		ldiw	Y, UART_LineBuf // встаем в начало полученной строки
+		ldiw	Y, UART_LineBuf ; встаем в начало полученной строки
 		rcall	ByteFromHexLine
-		mov		r10, r16		// номер элемента
-		rcall	ByteFromHexLine	// яркость
+		mov		r10, r16		; номер элемента
+		rcall	ByteFromHexLine	; яркость
 
 		;переходим на элемент
-		ldiw	X, StateParams + 5 // встаем в начало массива управления сменой состояний
+		ldiw	X, StateParams + 5 ; встаем в начало массива управления сменой состояний
 sms_1:	tst		r10
 		breq	sms_2
 		dec		r10
-		adiw	X, 6			// след.элемент		
+		adiw	X, 6			; след.элемент		
 		rjmp	sms_1
 sms_2:
 		st		X, r16
 ret
 
-Set_Manual_Color:		// установить текущее значение цвета заданной тройки (RGB одного светодиода)
+Set_Manual_Color:		; установить текущее значение цвета заданной тройки (RGB одного светодиода)
 		wdr
-		ldiw	Y, UART_LineBuf // встаем в начало полученной строки
+		ldiw	Y, UART_LineBuf ; встаем в начало полученной строки
 		rcall	ByteFromHexLine
-		mov		r10, r16		// номер элемента
-		rcall	ByteFromHexLine // r16 = цвет
+		mov		r10, r16		; номер элемента
+		rcall	ByteFromHexLine ; r16 = цвет
 
 		;переходим на элемент
-		ldiw	X, StateParams+5 // встаем в начало массива управления сменой состояний
+		ldiw	X, StateParams+5 ; встаем в начало массива управления сменой состояний
 smc_1:	tst		r10
 		breq	smc_2
 		dec		r10
-		adiw	X, 18			// след.светодиод		
+		adiw	X, 18			; след.светодиод		
 		rjmp	smc_1
 
 smc_2:
-// calc color  by index in tempa (0..15)
+; calc color  by index in tempa (0..15)
 		lsl		r16
 		lsl		r16
 		ldiw	Z, ColorTable*2
@@ -718,31 +723,31 @@ smc_2:
 		adc		ZH, r16
 		lpm		tempa, Z+
 		st		X, r16
-		adiw	X, 6			// след.светодиод		
+		adiw	X, 6			; след.светодиод		
 		lpm		tempa, Z+
 		st		X, r16
-		adiw	X, 6			// след.светодиод		
+		adiw	X, 6			; след.светодиод		
 		lpm		tempa, Z+
 		st		X, r16
 ret
 
 Set_Manual_All_Color:
-		ldiw	Y, UART_LineBuf // встаем в начало полученной строки
+		ldiw	Y, UART_LineBuf ; встаем в начало полученной строки
 		rcall	ByteFromHexLine
-		mov		r10, r16		// R
+		mov		r10, r16		; R
 		rcall	ByteFromHexLine 
-		mov		r11, r16		// G
+		mov		r11, r16		; G
 		rcall	ByteFromHexLine 
-		mov		r12, r16		// B
-		ldiw	X, StateParams // встаем в начало массива управления сменой состояний
+		mov		r12, r16		; B
+		ldiw	X, StateParams ; встаем в начало массива управления сменой состояний
 		ldi		r17, TapeLen
 rmac_1:
 		mov		r16, r11
-		rcall	Calc_Step_params16	// расчет параметров канала 
+		rcall	Calc_Step_params16	; расчет параметров канала 
 		mov		r16, r10
-		rcall	Calc_Step_params16	// расчет параметров канала 
+		rcall	Calc_Step_params16	; расчет параметров канала 
 		mov		r16, r12
-		rcall	Calc_Step_params16	// расчет параметров канала 
+		rcall	Calc_Step_params16	; расчет параметров канала 
 		dec		r17
 		brne	rmac_1
 ret
@@ -759,35 +764,35 @@ msg_data:
 			.db 0x0d, 0x0a, "DATA>", 0
 #endif
 
-// Mode description:
-//   RepeatCnt byte (0 - to skip effect, FF - repeat effect 255 times)
-//	 ModeFlag - bit mask:
-//			7-4 bits (high half byte) - Speed (0 - min, 15 - max)
-//			3,2 bits - reserved,
-//			1 bit - 0 - normal, 1 - Mirror effect lines (walk array from begin to end, but flip each line
-//			0 bit - 0 - normal, 1 - Reverse efect array (walk array from end to begin)
-//   Effect array addresses: Begin, End effect (don't forget to multiply by 2 if effect array placed on the code segment)
-//
-// Example mode string:
-// .DW		0x0200, Ef_Flash_BW_soft*2, Ef_Flash_BW_soft_End*2
-//			Repeat twice, Speed = 0 (minimal), normal playback from Ef_Flash_BW_soft to Ef_Flash_BW_soft_End
-//
-// .DW		0x10C2, Ef_Rainbow_white*2, Ef_Rainbow_white_End*2
-//			Repeat 16 times (0x10), Speed = 12 (0xC - very fast), Mirrored playback from Ef_Rainbow_white*2 to Ef_Rainbow_white_End*2
-//
-//
-// Effect array description:
-//			Raise steps byte (number of steps to set color, 1 - sharp switch, 255 - smoothly switch) 
-//			Wait steps byte  (number of steps to wait)
-//			Fall steps byte  (number of steps to fall down to next line color)
-//			Skip byte		 (not used)
-//			Colors array	 (each color = half byte, thus two leds are packed in single byte, number of bytes = TapeLen / 2)
-// Example for two steps effect:
-// .DB		15,16,12,1,	0x12,0x34,0x56,0x78,0x9a,0xbc  - set 12 leds to colors 1,2,3,4,5,6,7,9,10,11,12 in 15 cycles (moderately smoothly), than wait 16 cycles and switch to next line
-// .DB		15,16,12,1,	0x00,0x00,0x00,0x00,0x00,0x00  - turn off all leds (black) in 15 cycles
+; Mode description:
+;   RepeatCnt byte (0 - to skip effect, FF - repeat effect 255 times)
+;	 ModeFlag - bit mask:
+;			7-4 bits (high half byte) - Speed (0 - min, 15 - max)
+;			3,2 bits - reserved,
+;			1 bit - 0 - normal, 1 - Mirror effect lines (walk array from begin to end, but flip each line
+;			0 bit - 0 - normal, 1 - Reverse efect array (walk array from end to begin)
+;   Effect array addresses: Begin, End effect (don't forget to multiply by 2 if effect array placed on the code segment)
+;
+; Example mode string:
+; .DW		0x0200, Ef_Flash_BW_soft*2, Ef_Flash_BW_soft_End*2
+;			Repeat twice, Speed = 0 (minimal), normal playback from Ef_Flash_BW_soft to Ef_Flash_BW_soft_End
+;
+; .DW		0x10C2, Ef_Rainbow_white*2, Ef_Rainbow_white_End*2
+;			Repeat 16 times (0x10), Speed = 12 (0xC - very fast), Mirrored playback from Ef_Rainbow_white*2 to Ef_Rainbow_white_End*2
+;
+;
+; Effect array description:
+;			Raise steps byte (number of steps to set color, 1 - sharp switch, 255 - smoothly switch) 
+;			Wait steps byte  (number of steps to wait)
+;			Fall steps byte  (number of steps to fall down to next line color)
+;			Skip byte		 (not used)
+;			Colors array	 (each color = half byte, thus two leds are packed in single byte, number of bytes = TapeLen / 2)
+; Example for two steps effect:
+; .DB		15,16,12,1,	0x12,0x34,0x56,0x78,0x9a,0xbc  - set 12 leds to colors 1,2,3,4,5,6,7,9,10,11,12 in 15 cycles (moderately smoothly), than wait 16 cycles and switch to next line
+; .DB		15,16,12,1,	0x00,0x00,0x00,0x00,0x00,0x00  - turn off all leds (black) in 15 cycles
 
 
-// =============================== 20 ============================
+; =============================== 20 ============================
 #if (TapeLen==20)
 Modes:	
 
@@ -798,10 +803,10 @@ Modes:
 .DW		0x0580, Ef_Explosion*2, Ef_Explosion_end*2
 .DW		0x05c0, Ef_Running_sparkle_on_white*2, Ef_Running_sparkle_on_white_end*2
 
-//.DW		0xffff // End of effects list
+;.DW		0xffff ; End of effects list
 
-//DW		0x0200, Ef_Flash_BW_soft*2, Ef_Flash_BW_soft_End*2
-//.DW		0x0100, Ef_White_soft*2, Ef_White_soft_End*2
+;DW		0x0200, Ef_Flash_BW_soft*2, Ef_Flash_BW_soft_End*2
+;.DW		0x0100, Ef_White_soft*2, Ef_White_soft_End*2
 
 .DW		0x02a0, Ef_RainAll*2, Ef_RainAll_End*2
 
@@ -813,19 +818,19 @@ Modes:
 .DW		0x0402, Ef_Rainbow_white*2, Ef_Rainbow_white_End*2
 .DW		0x0100, Ef_Black_soft*2, Ef_Black_soft_End*2
 
-//.DW		0x0102, Ef_Rainbow*2, Ef_Rainbow_End*2
-//.DW		0x0120, Ef_Rainbow*2, Ef_Rainbow_End*2
+;.DW		0x0102, Ef_Rainbow*2, Ef_Rainbow_End*2
+;.DW		0x0120, Ef_Rainbow*2, Ef_Rainbow_End*2
 .DW		0x0242, Ef_Rainbow*2, Ef_Rainbow_End*2
 .DW		0x0260, Ef_Rainbow*2, Ef_Rainbow_End*2
 
-//.DW		0x0100, Ef_single_light_orange*2, Ef_single_light_orange_End*2
-//.DW		0x0102, Ef_single_light_orange*2, Ef_single_light_orange_End*2
+;.DW		0x0100, Ef_single_light_orange*2, Ef_single_light_orange_End*2
+;.DW		0x0102, Ef_single_light_orange*2, Ef_single_light_orange_End*2
 
 .DW		0x10E0, Ef_spectrum*2, Ef_spectrum_End*2
 .DW		0x10E2, Ef_spectrum*2, Ef_spectrum_End*2
 
-//.DW		0x0100, Ef_single_light_volett*2, Ef_single_light_volett_End*2
-//.DW		0x0102, Ef_single_light_volett*2, Ef_single_light_volett_End*2
+;.DW		0x0100, Ef_single_light_volett*2, Ef_single_light_volett_End*2
+;.DW		0x0102, Ef_single_light_volett*2, Ef_single_light_volett_End*2
 
 .DW		0x10C2, Ef_Rainbow*2, Ef_Rainbow_End*2
 .DW		0x10E0, Ef_Rainbow*2, Ef_Rainbow_End*2
@@ -838,7 +843,7 @@ Modes:
 
 .DW		0x0100, Ef_White_soft*2, Ef_White_soft_End*2
 
-.DW		0xffff // End of effects list
+.DW		0xffff ; End of effects list
 
 
 Ef_Flash_BW:
@@ -869,7 +874,7 @@ Ef_Rose_All:
 .DB   16,128,16,1 , 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99
 Ef_Rose_All_End:
 
-Ef_Explosion: // Starts from black
+Ef_Explosion: ; Starts from black
 .DB   8,0,8,1 , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 .DB   8,0,8,1 , 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05
 .DB   8,0,8,1 , 0x1f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x57
@@ -1145,43 +1150,43 @@ Ef_single_light_volett_end:
 #endif
 
 
-// =============================== 12 ============================
+; =============================== 12 ============================
 #if (TapeLen==12)
 Modes:	
 
-//.DW		0x02f0, Ef_Flash_Dark_soft*2, Ef_Flash_Dark_soft_End*2
-//.DW		0xffff // End of effects list
+;.DW		0x02f0, Ef_Flash_Dark_soft*2, Ef_Flash_Dark_soft_End*2
+;.DW		0xffff ; End of effects list
 
-//.DW		0x0180, Ef_White_soft*2, Ef_White_soft_End*2
+;.DW		0x0180, Ef_White_soft*2, Ef_White_soft_End*2
 
-//.DW		0x0200, Ef_Flash_BW_soft*2, Ef_Flash_BW_soft_End*2
+;.DW		0x0200, Ef_Flash_BW_soft*2, Ef_Flash_BW_soft_End*2
 .DW		0x10E0, Ef_spectrum*2, Ef_spectrum_End*2
 .DW		0x10E2, Ef_spectrum*2, Ef_spectrum_End*2
 
 .DW		0x03C0, Ef_RainAll*2, Ef_RainAll_End*2
 
-//.DW		0x1082, Ef_Rainbow_splash*2, Ef_Rainbow_splash_End*2
+;.DW		0x1082, Ef_Rainbow_splash*2, Ef_Rainbow_splash_End*2
 
-//.DW		0x0100, Ef_RainAll*2, Ef_RainAll_End*2
+;.DW		0x0100, Ef_RainAll*2, Ef_RainAll_End*2
 
 .DW		0x0100, Ef_White_soft*2, Ef_White_soft_End*2
 .DW		0x0400, Ef_Rainbow_white*2, Ef_Rainbow_white_End*2
 .DW		0x0402, Ef_Rainbow_white*2, Ef_Rainbow_white_End*2
-//.DW		0x0100, Ef_Black_soft*2, Ef_Black_soft_End*2
+;.DW		0x0100, Ef_Black_soft*2, Ef_Black_soft_End*2
 
-//.DW		0x0102, Ef_Rainbow*2, Ef_Rainbow_End*2
-//.DW		0x0120, Ef_Rainbow*2, Ef_Rainbow_End*2
+;.DW		0x0102, Ef_Rainbow*2, Ef_Rainbow_End*2
+;.DW		0x0120, Ef_Rainbow*2, Ef_Rainbow_End*2
 .DW		0x0242, Ef_Rainbow*2, Ef_Rainbow_End*2
 .DW		0x0260, Ef_Rainbow*2, Ef_Rainbow_End*2
 
-//.DW		0x0100, Ef_single_light_orange*2, Ef_single_light_orange_End*2
-//.DW		0x0102, Ef_single_light_orange*2, Ef_single_light_orange_End*2
+;.DW		0x0100, Ef_single_light_orange*2, Ef_single_light_orange_End*2
+;.DW		0x0102, Ef_single_light_orange*2, Ef_single_light_orange_End*2
 
 .DW		0x10E0, Ef_spectrum*2, Ef_spectrum_End*2
 .DW		0x10E2, Ef_spectrum*2, Ef_spectrum_End*2
 
-//.DW		0x0100, Ef_single_light_volett*2, Ef_single_light_volett_End*2
-//.DW		0x0102, Ef_single_light_volett*2, Ef_single_light_volett_End*2
+;.DW		0x0100, Ef_single_light_volett*2, Ef_single_light_volett_End*2
+;.DW		0x0102, Ef_single_light_volett*2, Ef_single_light_volett_End*2
 
 .DW		0x10C2, Ef_Rainbow*2, Ef_Rainbow_End*2
 .DW		0x10E0, Ef_Rainbow*2, Ef_Rainbow_End*2
@@ -1192,9 +1197,9 @@ Modes:
 
 .DW		0x0102, Ef_Rainbow_splash_to_all*2, Ef_Rainbow_splash_to_all_End*2
 
-//.DW		0x0100, Ef_White_soft*2, Ef_White_soft_End*2
+;.DW		0x0100, Ef_White_soft*2, Ef_White_soft_End*2
 
-.DW		0xffff // End of effects list
+.DW		0xffff ; End of effects list
 
 Ef_Flash_BW:
 Ef_Black:
@@ -1349,41 +1354,41 @@ Ef_single_light_volett_end:
 #endif
 
 
-// ================ Colors Table
-ColorTable:	// G, R, B, reserved
-.DB	0,0,0,		0	// 0 black
-.DB 0,0x83,0,	0	// 1 red
-.DB 0x26,0xa7,0,	0	// 2 orange
-.DB 0xb6,0xdc,0,	0	// 3 yellow
-.DB 0xff,0,0,	0	// 4 green
-.DB 0xa7,0x19,0xa9,	0	// 5 light blue
-.DB 0,0,0xff,	0	// 6 blue
-.DB 0,0x3e,0xb1,	0	// 7 violett
-.DB 170,85,0,	0	// 8 brown
-.DB 0,127,127,	0	// 9 rose
-.DB 51,102,102, 0	// a light rose
-.DB 170,0,85,	0	// b cyan
-.DB 2,2,2,		0	// c dark gray
-.DB 20,20,20,	0	// d gray
-.DB 255,255,255,0	// e ultra white
-.DB 85,85,85,	0	// f white
+; ================ Colors Table
+ColorTable:	; G, R, B, reserved
+.DB	0,0,0,		0	; 0 black
+.DB 0,0x83,0,	0	; 1 red
+.DB 0x26,0xa7,0,	0	; 2 orange
+.DB 0xb6,0xdc,0,	0	; 3 yellow
+.DB 0xff,0,0,	0	; 4 green
+.DB 0xa7,0x19,0xa9,	0	; 5 light blue
+.DB 0,0,0xff,	0	; 6 blue
+.DB 0,0x3e,0xb1,	0	; 7 violett
+.DB 170,85,0,	0	; 8 brown
+.DB 0,127,127,	0	; 9 rose
+.DB 51,102,102, 0	; a light rose
+.DB 170,0,85,	0	; b cyan
+.DB 2,2,2,		0	; c dark gray
+.DB 20,20,20,	0	; d gray
+.DB 255,255,255,0	; e ultra white
+.DB 85,85,85,	0	; f white
 
 .dseg
 
-// Переменные:
-BegArr:		.BYTE	2	// адрес начала текущего эффекта (в авто-режиме)
-EndArr:		.BYTE	2	// адрес конца текущего эффекта
+; Переменные:
+BegArr:		.BYTE	2	; адрес начала текущего эффекта (в авто-режиме)
+EndArr:		.BYTE	2	; адрес конца текущего эффекта
 
-NextProgLine:	.BYTE	2 // адрес след. строки программы эффектов
+NextProgLine:	.BYTE	2 ; адрес след. строки программы эффектов
 
-// Для каждого цвета RGB по 6 байт:
-//	- След.состояние , 
-//	- Флаги, 
-//	- Параметры приращения перехода: 
-//	- Текущее состояние
+; Для каждого цвета RGB по 6 байт:
+;	- След.состояние , 
+;	- Флаги, 
+;	- Параметры приращения перехода: 
+;	- Текущее состояние
 StateParams:	.BYTE	TapeLen*3*6
 
-// Ручной вывод через терминал
-//StateManual:	.BYTE	ManualLen*3+4 
+; Ручной вывод через терминал
+;StateManual:	.BYTE	ManualLen*3+4 
 
 
