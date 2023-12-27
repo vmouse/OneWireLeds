@@ -38,8 +38,8 @@
 .def	StepCnt		= r8	; step counter in current state 
 
 
-#define	TapeLen		20	; length of led tape. allowable values are 12 and 20
-#define	ManualLen	20	; max length of led tape for manual output
+#define	TapeLen		12	; length of led tape. allowable values are 12 and 20
+#define	ManualLen	12	; max length of led tape for manual output
 
 
 #if defined(_TN85DEF_INC_) 
@@ -154,6 +154,8 @@ RESET:
 	outi	led_ddr, (1<<led|1<<power_led)	; output for bus port
 
 
+
+
 #if defined(UART_USE_HARD) || defined(UART_USE_SOFT)
 	.include "..\..\libasm\UART.ASM"
 
@@ -188,6 +190,7 @@ RESET:
 
 ; Power indicator
 	cbi		led_port, power_led
+
 
 MainLoop:						; Основной цикл обработки перехода состояний
 

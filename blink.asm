@@ -13,6 +13,26 @@
 .equ	led_ddr		= DDRB  ; direct databort
 .equ	power_led	= PB0   ; power indicator
 
+.def	tempa	= r16
+.def	tempb	= r17
+.def	tempc	= r18
+
+.macro	OutByte 	
+	ldi		tempa, 8
+@0_LOOP:
+	sbi		led_port, Led
+	rol		@0
+	brcc	@0_LP1
+	rcall	WAIT400
+@0_LP1:
+	cbi		led_port, Led
+	brcs	@0_LP2
+	rcall	WAIT400
+@0_LP2:
+	dec		tempa
+	brne	@0_LOOP
+.endm
+
 .org 0
 
 ; IRQ vectors ATTINY85
@@ -37,7 +57,7 @@ rjmp IRQ_def; USI_OVF_ISR ; Address 0x000E
 IRQ_def:
 	reti
 
-RESET:
+RESET:  
 
 ; Stack init:
 	outi	SPH, high(RAMEND)
@@ -47,9 +67,18 @@ RESET:
 	outi	led_ddr, (1<<power_led|1<<led)	; output for bus port
 
 LOOP:
-    cbi		led_port, power_led
-    cbi		led_port, led
-    sbi		led_port, power_led
-    sbi		led_port, led
+    ldi		tempb, 0
+	OutByte	tempb
+    ldi		tempb, 0x0f
+	OutByte	tempb
+
+;    cbi		led_port, power_led
+;    cbi		led_port, led
+;    sbi		led_port, power_led
+;    sbi		led_port, led
     rjmp    LOOP
+
+WAIT400: ; call = ~ 400us
+	nop
+	ret
 
