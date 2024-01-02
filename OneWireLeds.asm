@@ -66,20 +66,64 @@
 
 ; OutByte	Reg (not tempa!)
 .macro	OutByte 	
-	ldi		tempa, 8
+
+	ldi		tempa, 7        ; 1  (62.5ns)
 @0_LOOP:
-	sbi		led_port, Led
-	rol		@0
-	brcc	@0_LP1
-	rcall	WAIT400
-@0_LP1:
-	cbi		led_port, Led
-	brcs	@0_LP2
-	rcall	WAIT400
-@0_LP2:
-	dec		tempa
-	brne	@0_LOOP
+	sbi		led_port, Led   ; 2/1 (62.5ns / 125ns)
+	rol		@0              ; 1  (62.5ns)
+	brcc	@0_OUT_0        ; 1 - false, 2 - true (62.5ns / 125ns)
+@0_OUT_1:
+	rcall	WAIT400         ; 8 (500ns)
+    nop                     ; 1 (62.5ns)   
+    nop                     ; 1 (62.5ns)   
+    nop                     ; 1 (62.5ns)   
+	cbi		led_port, Led   ; 1 (62.5ns)
+	rjmp	@0_NEXT_BIT     ; 2 (125ns)
+@0_OUT_0:
+    nop                     ; 1 (62.5ns)   
+	cbi		led_port, Led   ; 1 (62.5ns)
+	rcall	WAIT400         ; 8 (500ns)
+    nop                     ; 1 (62.5ns)   
+    nop                     ; 1 (62.5ns)   
+@0_NEXT_BIT:
+	dec		tempa           ; 1 (62.5ns)
+	brne	@0_LOOP         ; 1 - false, 2 - true (62.5ns / 125ns)
+
+    nop                     ; 1 (62.5ns)    
+@0_LAST_BIT:
+	sbi		led_port, Led   ; 2/1 (62.5ns / 125ns)
+	rol		@0              ; 1  (62.5ns)
+	brcs	@0_LAST_BIT_1   ; 1 - false, 2 - true (62.5ns / 125ns)
+@0_LAST_BIT_0:
+    nop                     ; 1 (62.5ns)   
+    nop                     ; 1 (62.5ns)   
+	cbi		led_port, Led   ; 1 (62.5ns)
+    rjmp    @0_END
+@0_LAST_BIT_1:
+	rcall	WAIT400         ; 8 (500ns)
+    nop                     ; 1 (62.5ns)   
+	cbi		led_port, Led   ; 1 (62.5ns)
+@0_END:
+
 .endm
+
+; ;OutByte	Reg (not tempa!)
+; .macro	OutByte
+; 	ldi		tempa, 8
+; @0_LOOP:
+; 	sbi		led_port, Led
+; 	rol		@0
+; 	brcc	@0_LP1
+; 	rcall	WAIT400
+; @0_LP1:
+; 	cbi		led_port, Led
+; 	brcs	@0_LP2
+; 	rcall	WAIT400
+; @0_LP2:
+; 	dec		tempa
+; 	brne	@0_LOOP
+; .endm
+
 
 .org 0
 #if defined(_TN85DEF_INC_) 
@@ -154,8 +198,6 @@ RESET:
 	outi	led_ddr, (1<<led|1<<power_led)	; output for bus port
 
 
-
-
 #if defined(UART_USE_HARD) || defined(UART_USE_SOFT)
 	.include "..\..\libasm\UART.ASM"
 
@@ -184,12 +226,35 @@ RESET:
 
 	rcall	InitVariables
 	rcall	InitEffectState
+	rcall	Output_ledtape
 	rcall	ReadNextState
 
 	sbr		ModeFlag, bit7
 
 ; Power indicator
 	cbi		led_port, power_led
+
+
+; TEST_MAIN:
+
+; 	ldi		tempc, 3
+; 	ldiw	X, StateParams + 5
+; test_outloop:
+; ;	ld		tempb, X+
+	
+; 	ldi 	tempb, 0x0f
+; 	OutByte	tempb
+
+; 	addiw	X, 5
+; 	dec		tempc
+; 	brne	test_outloop
+; 	cbi		led_port, led
+
+; 	rcall	InitVariables
+; ;	rcall	InitVariables
+
+
+; 	rjmp TEST_MAIN
 
 
 MainLoop:						; Основной цикл обработки перехода состояний
@@ -404,7 +469,7 @@ stop:
 
 
 WAIT400: ; call = ~ 400us
-	nop
+;	nop
 	ret
 
 ; division [tempa:tempb] / tempc
@@ -565,7 +630,7 @@ Calc_Color:	; calc color  by index in tempa (0..15)
 ; curr + next = 2 байта на цвет
 CalcPWM:
 		ldiw	X, StateParams
-		ldi		tempc, TapeLen*3
+		ldi		tempc, TapeLen * 3
 cp_loop16:
 		ld		r14, X+	; next state
 		ld		r16, X+	; direction (zerro if raise, else fall)
@@ -794,19 +859,16 @@ msg_data:
 ; .DB		15,16,12,1,	0x00,0x00,0x00,0x00,0x00,0x00  - turn off all leds (black) in 15 cycles
 
 ; ============================== Test =========================
-#if (TapeLen==14)
+#if (TapeLen==2)
 Modes:	
 .DW		0x10E0, Ef_spectrum*2, Ef_spectrum_End*2
 .DW		0xffff ; End of effects list
 
 Ef_spectrum:
-.DB 63,0,63,1,	0x12,0x34,0x56,0x71,0x23,0x45,0x45,0x45
-.DB 63,0,63,1,	0x23,0x45,0x67,0x12,0x34,0x56,0x45,0x45
-.DB 63,0,63,1,	0x34,0x56,0x71,0x23,0x45,0x67,0x45,0x45
-.DB 63,0,63,1,	0x45,0x67,0x12,0x34,0x56,0x71,0x45,0x45
-.DB 63,0,63,1,	0x56,0x71,0x23,0x45,0x67,0x12,0x45,0x45
-.DB 63,0,63,1,	0x67,0x12,0x34,0x56,0x71,0x23,0x45,0x45
-.DB 63,0,63,1,	0x71,0x23,0x45,0x67,0x12,0x34,0x45,0x45
+.DB 63,0,63,1,	0x17;,0x47
+;.DB 63,0,63,1,	0x56,0x78
+;.DB 63,0,63,1,	0x12,0x34
+;.DB 63,0,63,1,	0x56,0x78
 Ef_spectrum_end:
 
 #endif
@@ -1180,10 +1242,11 @@ Modes:
 ;.DW		0x0180, Ef_White_soft*2, Ef_White_soft_End*2
 
 ;.DW		0x0200, Ef_Flash_BW_soft*2, Ef_Flash_BW_soft_End*2
+.DW		0x03C0, Ef_RainAll*2, Ef_RainAll_End*2
+
 .DW		0x10E0, Ef_spectrum*2, Ef_spectrum_End*2
 .DW		0x10E2, Ef_spectrum*2, Ef_spectrum_End*2
 
-.DW		0x03C0, Ef_RainAll*2, Ef_RainAll_End*2
 
 ;.DW		0x1082, Ef_Rainbow_splash*2, Ef_Rainbow_splash_End*2
 
@@ -1406,7 +1469,7 @@ NextProgLine:	.BYTE	2 ; адрес след. строки программы э�
 ;	- Флаги, 
 ;	- Параметры приращения перехода: 
 ;	- Текущее состояние
-StateParams:	.BYTE	TapeLen*3*6
+StateParams:	.BYTE	TapeLen * 3 * 6
 
 ; Ручной вывод через терминал
 ;StateManual:	.BYTE	ManualLen*3+4 

@@ -1,6 +1,10 @@
 #!/bin/bash
 
-avra blink.asm
+avra blink.asm -l blink.list -m blink.map --listmac
 
-avrdude -c avrisp -b 19200 -p attiny85 -P /dev/tty.usbserial-AE01AF86 -B 125kHz -U flash:w:blink.hex
+#set fuses for 16Mhz Attiny85
+#low = F1, high = DF, Extended = FF
+#avrdude -c avrisp -b 19200 -p attiny85 -P /dev/tty.usbserial-AE01AF86 -v -U lfuse:w:0xFF:m -U hfuse:w:0xDF:m -U efuse:w:0xFF:m
 
+#main code
+avrdude -c avrisp -b 19200 -p attiny85 -P /dev/tty.usbserial-AE01AF86 -V -U flash:w:blink.hex
