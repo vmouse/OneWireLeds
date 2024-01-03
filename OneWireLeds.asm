@@ -308,7 +308,7 @@ mi_next3:
 	breq	CmdNextState
 	cpi		r16, 'M'
 	breq	CmdMirror
-	rjmp	MainLoop
+	rjmp	NextMainLoop
 
 CmdAutoMode:
 	sbr		ModeFlag, bit7
@@ -619,9 +619,10 @@ Calc_Color:	; calc color  by index in tempa (0..15)
 		rcall	Calc_Step_params16
 		popw	Z
 
-;		sbrc	ModeFlag, 1		; пропуск если бит Mirror очищен (работает только в mega)
-		andi 	ModeFlag, 1		; тоже, но работает в tiny и везде потому что макро subiw - 2 инструкции
-		breq	Calc_Color_end
+;		sbrc	ModeFlag, 1		; пропуск если бит Mirror очищен 
+		sbrs	ModeFlag, 1		; пропуск если бит Mirror установлен 
+		rjmp	Calc_Color_end
+Calc_Color_step_back:
 		subiw	X,2*3*6			; откатываемся на предыдущий элемент если идем зеркально
 Calc_Color_end:
 		ret
@@ -1236,6 +1237,33 @@ Ef_single_light_volett_end:
 
 
 ; =============================== 12 ============================
+; Mode description:
+;   RepeatCnt byte (0 - to skip effect, FF - repeat effect 255 times)
+;	ModeFlag - bit mask:
+;			7-4 bits (high half byte) - Speed (0 - min, 15 - max)
+;			3,2 bits - reserved,
+;			1 bit - 0 - normal, 1 - Mirror effect lines (walk array from begin to end, but flip each line
+;			0 bit - 0 - normal, 1 - Reverse efect array (walk array from end to begin)
+;   Effect array addresses: Begin, End effect (don't forget to multiply by 2 if effect array placed on the code segment)
+;
+; Example mode string:
+; .DW		0x0200, Ef_Flash_BW_soft*2, Ef_Flash_BW_soft_End*2
+;			Repeat twice, Speed = 0 (minimal), normal playback from Ef_Flash_BW_soft to Ef_Flash_BW_soft_End
+;
+; .DW		0x10C2, Ef_Rainbow_white*2, Ef_Rainbow_white_End*2
+;			Repeat 16 times (0x10), Speed = 12 (0xC - very fast), Mirrored playback from Ef_Rainbow_white*2 to Ef_Rainbow_white_End*2
+;
+;
+; Effect array description:
+;			Raise steps byte (number of steps to set color, 1 - sharp switch, 255 - smoothly switch) 
+;			Wait steps byte  (number of steps to wait)
+;			Fall steps byte  (number of steps to fall down to next line color)
+;			Skip byte		 (not used)
+;			Colors array	 (each color = half byte, thus two leds are packed in single byte, number of bytes = TapeLen / 2)
+; Example for two steps effect:
+; .DB		15,16,12,1,	0x12,0x34,0x56,0x78,0x9a,0xbc  - set 12 leds to colors 1,2,3,4,5,6,7,9,10,11,12 in 15 cycles (moderately smoothly), than wait 16 cycles and switch to next line
+; .DB		15,16,12,1,	0x00,0x00,0x00,0x00,0x00,0x00  - turn off all leds (black) in 15 cycles
+
 #if (TapeLen==12)
 Modes:	
 
@@ -1244,7 +1272,7 @@ Modes:
 
 ;.DW		0x0180, Ef_White_soft*2, Ef_White_soft_End*2
 
-;.DW		0x0200, Ef_Flash_BW_soft*2, Ef_Flash_BW_soft_End*2
+;.DW		0xfff0, Ef_Flash_BW*2, Ef_Flash_BW_End*2
 .DW		0x03C0, Ef_RainAll*2, Ef_RainAll_End*2
 
 .DW		0x10E0, Ef_spectrum*2, Ef_spectrum_End*2

@@ -1,6 +1,7 @@
 #!/bin/bash
 
-avra OneWireLeds.asm -l OneWireLeds.list -m OneWireLeds.map --listmac
+#avra OneWireLeds.asm -l OneWireLeds.list -m OneWireLeds.map --listmac
+wine64 avrasm2 OneWireLeds.asm -fI -o OneWireLeds.hex -d OneWireLeds.debug
 
 #set fuses for 16Mhz Attiny85
 #low = F1, high = DF, Extended = FF
