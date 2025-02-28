@@ -38,8 +38,8 @@
 .def	StepCnt		= r8	; step counter in current state 
 
 
-#define	TapeLen		20	; length of led tape. allowable values are 12 and 20
-#define	ManualLen	20	; max length of led tape for manual output
+#define	TapeLen		12	; length of led tape. allowable values are 12 and 20
+#define	ManualLen	12	; max length of led tape for manual output
 
 
 #if defined(_TN85DEF_INC_) 
@@ -66,20 +66,64 @@
 
 ; OutByte	Reg (not tempa!)
 .macro	OutByte 	
-	ldi		tempa, 8
+
+	ldi		tempa, 7        ; 1  (62.5ns)
 @0_LOOP:
-	sbi		led_port, Led
-	rol		@0
-	brcc	@0_LP1
-	rcall	WAIT400
-@0_LP1:
-	cbi		led_port, Led
-	brcs	@0_LP2
-	rcall	WAIT400
-@0_LP2:
-	dec		tempa
-	brne	@0_LOOP
+	sbi		led_port, Led   ; 2/1 (62.5ns / 125ns)
+	rol		@0              ; 1  (62.5ns)
+	brcc	@0_OUT_0        ; 1 - false, 2 - true (62.5ns / 125ns)
+@0_OUT_1:
+	rcall	WAIT400         ; 8 (500ns)
+    nop                     ; 1 (62.5ns)   
+    nop                     ; 1 (62.5ns)   
+    nop                     ; 1 (62.5ns)   
+	cbi		led_port, Led   ; 1 (62.5ns)
+	rjmp	@0_NEXT_BIT     ; 2 (125ns)
+@0_OUT_0:
+    nop                     ; 1 (62.5ns)   
+	cbi		led_port, Led   ; 1 (62.5ns)
+	rcall	WAIT400         ; 8 (500ns)
+    nop                     ; 1 (62.5ns)   
+    nop                     ; 1 (62.5ns)   
+@0_NEXT_BIT:
+	dec		tempa           ; 1 (62.5ns)
+	brne	@0_LOOP         ; 1 - false, 2 - true (62.5ns / 125ns)
+
+    nop                     ; 1 (62.5ns)    
+@0_LAST_BIT:
+	sbi		led_port, Led   ; 2/1 (62.5ns / 125ns)
+	rol		@0              ; 1  (62.5ns)
+	brcs	@0_LAST_BIT_1   ; 1 - false, 2 - true (62.5ns / 125ns)
+@0_LAST_BIT_0:
+    nop                     ; 1 (62.5ns)   
+    nop                     ; 1 (62.5ns)   
+	cbi		led_port, Led   ; 1 (62.5ns)
+    rjmp    @0_END
+@0_LAST_BIT_1:
+	rcall	WAIT400         ; 8 (500ns)
+    nop                     ; 1 (62.5ns)   
+	cbi		led_port, Led   ; 1 (62.5ns)
+@0_END:
+
 .endm
+
+; ;OutByte	Reg (not tempa!)
+; .macro	OutByte
+; 	ldi		tempa, 8
+; @0_LOOP:
+; 	sbi		led_port, Led
+; 	rol		@0
+; 	brcc	@0_LP1
+; 	rcall	WAIT400
+; @0_LP1:
+; 	cbi		led_port, Led
+; 	brcs	@0_LP2
+; 	rcall	WAIT400
+; @0_LP2:
+; 	dec		tempa
+; 	brne	@0_LOOP
+; .endm
+
 
 .org 0
 #if defined(_TN85DEF_INC_) 
@@ -183,12 +227,36 @@ RESET:
 
 	rcall	InitVariables
 	rcall	InitEffectState
+	rcall	Output_ledtape
 	rcall	ReadNextState
 
 	sbr		ModeFlag, bit7
 
 ; Power indicator
 	cbi		led_port, power_led
+
+
+; TEST_MAIN:
+
+; 	ldi		tempc, 3
+; 	ldiw	X, StateParams + 5
+; test_outloop:
+; ;	ld		tempb, X+
+	
+; 	ldi 	tempb, 0x0f
+; 	OutByte	tempb
+
+; 	addiw	X, 5
+; 	dec		tempc
+; 	brne	test_outloop
+; 	cbi		led_port, led
+
+; 	rcall	InitVariables
+; ;	rcall	InitVariables
+
+
+; 	rjmp TEST_MAIN
+
 
 MainLoop:						; Основной цикл обработки перехода состояний
 
@@ -241,7 +309,7 @@ mi_next3:
 	breq	CmdNextState
 	cpi		r16, 'M'
 	breq	CmdMirror
-	rjmp	MainLoop
+	rjmp	NextMainLoop
 
 CmdAutoMode:
 	sbr		ModeFlag, bit7
@@ -315,7 +383,6 @@ Read_manual_line_data:
 ; Erase variables and set to default:
 InitVariables:
 	ldiw	X, StateParams
-;	ldi		tempa, TapeLen*3*6
 	ldi		tempa, TapeLen*3
 	clr		tempb
 eraloop:
@@ -403,7 +470,7 @@ stop:
 
 
 WAIT400: ; call = ~ 400us
-	nop
+;	nop
 	ret
 
 ; division [tempa:tempb] / tempc
@@ -553,8 +620,12 @@ Calc_Color:	; calc color  by index in tempa (0..15)
 		rcall	Calc_Step_params16
 		popw	Z
 
-		sbrc	ModeFlag, 1		; пропуск если бит Mirror очищен
+;		sbrc	ModeFlag, 1		; пропуск если бит Mirror очищен 
+		sbrs	ModeFlag, 1		; пропуск если бит Mirror установлен 
+		rjmp	Calc_Color_end
+Calc_Color_step_back:
 		subiw	X,2*3*6			; откатываемся на предыдущий элемент если идем зеркально
+Calc_Color_end:
 		ret
 
 
@@ -564,7 +635,7 @@ Calc_Color:	; calc color  by index in tempa (0..15)
 ; curr + next = 2 байта на цвет
 CalcPWM:
 		ldiw	X, StateParams
-		ldi		tempc, TapeLen*3
+		ldi		tempc, TapeLen * 3
 cp_loop16:
 		ld		r14, X+	; next state
 		ld		r16, X+	; direction (zerro if raise, else fall)
@@ -792,6 +863,21 @@ msg_data:
 ; .DB		15,16,12,1,	0x12,0x34,0x56,0x78,0x9a,0xbc  - set 12 leds to colors 1,2,3,4,5,6,7,9,10,11,12 in 15 cycles (moderately smoothly), than wait 16 cycles and switch to next line
 ; .DB		15,16,12,1,	0x00,0x00,0x00,0x00,0x00,0x00  - turn off all leds (black) in 15 cycles
 
+; ============================== Test =========================
+#if (TapeLen==2)
+Modes:	
+.DW		0x10E0, Ef_spectrum*2, Ef_spectrum_End*2
+.DW		0xffff ; End of effects list
+
+Ef_spectrum:
+.DB 63,0,63,1,	0x17;,0x47
+;.DB 63,0,63,1,	0x56,0x78
+;.DB 63,0,63,1,	0x12,0x34
+;.DB 63,0,63,1,	0x56,0x78
+Ef_spectrum_end:
+
+#endif
+
 
 ; =============================== 20 ============================
 #if (TapeLen==20)
@@ -806,7 +892,7 @@ Modes:
 
 ;.DW		0xffff ; End of effects list
 
-;DW		0x0200, Ef_Flash_BW_soft*2, Ef_Flash_BW_soft_End*2
+;.DW		0x0200, Ef_Flash_BW_soft*2, Ef_Flash_BW_soft_End*2
 ;.DW		0x0100, Ef_White_soft*2, Ef_White_soft_End*2
 
 .DW		0x02a0, Ef_RainAll*2, Ef_RainAll_End*2
@@ -846,6 +932,15 @@ Modes:
 
 .DW		0xffff ; End of effects list
 
+Ef_Flash_Dark_soft:
+.DB   127,128,127,1,  0xdd,0xdd,0xdd,0xdd,0xdd,0xdd,0xdd,0xdd, 0xdd,0xdd
+.DB   127,128,127,1,  0,0,0,0, 0,0,0,0, 0,0
+Ef_Flash_Dark_soft_End:
+
+Ef_Rose_All:
+.DB   16,128,16,1 , 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99
+Ef_Rose_All_End:
+
 
 Ef_Flash_BW:
 Ef_Black:
@@ -865,15 +960,6 @@ Ef_Black_soft:
 .DB   127,128,127,1,  0,0,0,0,0,0,0,0, 0,0
 Ef_Black_soft_End:
 Ef_Flash_BW_soft_End:
-
-Ef_Flash_Dark_soft:
-.DB   127,128,127,1,  0xdd,0xdd,0xdd,0xdd,0xdd,0xdd,0xdd,0xdd, 0xdd,0xdd
-.DB   127,128,127,1,  0,0,0,0, 0,0,0,0, 0,0
-Ef_Flash_Dark_soft_End:
-
-Ef_Rose_All:
-.DB   16,128,16,1 , 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99
-Ef_Rose_All_End:
 
 Ef_Explosion: ; Starts from black
 .DB   8,0,8,1 , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
@@ -1152,6 +1238,33 @@ Ef_single_light_volett_end:
 
 
 ; =============================== 12 ============================
+; Mode description:
+;   RepeatCnt byte (0 - to skip effect, FF - repeat effect 255 times)
+;	ModeFlag - bit mask:
+;			7-4 bits (high half byte) - Speed (0 - min, 15 - max)
+;			3,2 bits - reserved,
+;			1 bit - 0 - normal, 1 - Mirror effect lines (walk array from begin to end, but flip each line
+;			0 bit - 0 - normal, 1 - Reverse efect array (walk array from end to begin)
+;   Effect array addresses: Begin, End effect (don't forget to multiply by 2 if effect array placed on the code segment)
+;
+; Example mode string:
+; .DW		0x0200, Ef_Flash_BW_soft*2, Ef_Flash_BW_soft_End*2
+;			Repeat twice, Speed = 0 (minimal), normal playback from Ef_Flash_BW_soft to Ef_Flash_BW_soft_End
+;
+; .DW		0x10C2, Ef_Rainbow_white*2, Ef_Rainbow_white_End*2
+;			Repeat 16 times (0x10), Speed = 12 (0xC - very fast), Mirrored playback from Ef_Rainbow_white*2 to Ef_Rainbow_white_End*2
+;
+;
+; Effect array description:
+;			Raise steps byte (number of steps to set color, 1 - sharp switch, 255 - smoothly switch) 
+;			Wait steps byte  (number of steps to wait)
+;			Fall steps byte  (number of steps to fall down to next line color)
+;			Skip byte		 (not used)
+;			Colors array	 (each color = half byte, thus two leds are packed in single byte, number of bytes = TapeLen / 2)
+; Example for two steps effect:
+; .DB		15,16,12,1,	0x12,0x34,0x56,0x78,0x9a,0xbc  - set 12 leds to colors 1,2,3,4,5,6,7,9,10,11,12 in 15 cycles (moderately smoothly), than wait 16 cycles and switch to next line
+; .DB		15,16,12,1,	0x00,0x00,0x00,0x00,0x00,0x00  - turn off all leds (black) in 15 cycles
+
 #if (TapeLen==12)
 Modes:	
 
@@ -1160,11 +1273,12 @@ Modes:
 
 ;.DW		0x0180, Ef_White_soft*2, Ef_White_soft_End*2
 
-;.DW		0x0200, Ef_Flash_BW_soft*2, Ef_Flash_BW_soft_End*2
+;.DW		0xfff0, Ef_Flash_BW*2, Ef_Flash_BW_End*2
+.DW		0x03C0, Ef_RainAll*2, Ef_RainAll_End*2
+
 .DW		0x10E0, Ef_spectrum*2, Ef_spectrum_End*2
 .DW		0x10E2, Ef_spectrum*2, Ef_spectrum_End*2
 
-.DW		0x03C0, Ef_RainAll*2, Ef_RainAll_End*2
 
 ;.DW		0x1082, Ef_Rainbow_splash*2, Ef_Rainbow_splash_End*2
 
@@ -1383,11 +1497,11 @@ EndArr:		.BYTE	2	; адрес конца текущего эффекта
 NextProgLine:	.BYTE	2 ; адрес след. строки программы эффектов
 
 ; Для каждого цвета RGB по 6 байт:
-;	- След.состояние , 
-;	- Флаги, 
-;	- Параметры приращения перехода: 
-;	- Текущее состояние
-StateParams:	.BYTE	TapeLen*3*6
+;	- След.состояние (2 байта), 
+;	- Текущее состояние (2 байта)
+;	- Флаги (1 - вперед/назад), 
+;	- Параметры приращения перехода (1 байт): 
+StateParams:	.BYTE	TapeLen * 3 * 6
 
 ; Ручной вывод через терминал
 ;StateManual:	.BYTE	ManualLen*3+4 
