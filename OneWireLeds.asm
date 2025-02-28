@@ -8,8 +8,8 @@
 #define	BAUD	57600
 .include "tn85def.inc"
 
-
-;#define DEVICE "ATtiny85"
+#message "Compiling..."
+;#define	DEVICE	"ATtiny85"
 
 ;#define	USE_UART_text
 ;#define UART_MaxInputSize 128	; maximum length of input line
@@ -152,6 +152,7 @@ RESET:
 
 ; Port init:
 	outi	led_ddr, (1<<led|1<<power_led)	; output for bus port
+	outi	led_ddr, (1<<led)	; output for bus port
 
 
 #if defined(UART_USE_HARD) || defined(UART_USE_SOFT)
